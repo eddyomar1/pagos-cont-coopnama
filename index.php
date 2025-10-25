@@ -170,15 +170,37 @@ function footer_html(){ ?>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 <script>
 $(function(){
-  var $tbl=$('#tabla');
-  if($tbl.length){
-    $tbl.DataTable({pageLength:10,lengthMenu:[5,10,25,50,100],
-      language:{url:'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'}
+  var $tbl = $('#tabla');
+  if ($tbl.length) {
+    // Ocultamos la colocación por defecto de length (l) y filter (f) y luego los movemos
+    var dt = $tbl.DataTable({
+      pageLength: 10,
+      lengthMenu: [5,10,25,50,100],
+      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
+      dom: 't<"d-none"lf>ip',   // l = length, f = filter (se renderizan dentro de un contenedor oculto)
+      columnDefs: [{ targets: -1, className: 'text-center' }] // centra la columna Acciones
     });
+
+    // Mueve los controles al contenedor que creamos en el card-header
+    var $wrap = $(dt.table().container());
+    var $controls = $('.dt-controls');
+
+    $controls
+      .append($wrap.find('.dataTables_length'))   // "Mostrar X registros"
+      .append($wrap.find('.dataTables_filter'));  // "Buscar"
+
+    // Unos retoques de Bootstrap
+    $controls.find('select').addClass('form-select form-select-sm');
+    $controls.find('input[type="search"]').addClass('form-control form-control-sm').attr('placeholder','Buscar...');
+    $controls.find('label').addClass('mb-0'); // compacta
   }
-  $(document).on('click','.btn-delete',function(e){ if(!confirm('¿Eliminar este registro?')) e.preventDefault(); });
+
+  $(document).on('click', '.btn-delete', function(e){
+    if (!confirm('¿Eliminar este registro?')) e.preventDefault();
+  });
 });
 </script>
+
 </body></html>
 <?php }
 
