@@ -162,7 +162,7 @@ function header_html($title='Residentes'){ ?>
 <nav class="navbar navbar-expand-lg bg-white shadow-sm"><div class="container">
   <a class="navbar-brand fw-bold" href="?action=full">RESIDENTES COOPNAMA II</a>
   <div class="ms-auto d-flex gap-2">
-    <a href="?action=new" class="btn btn-primary btn-sm btn-rounded">Agregar</a>
+    <a href="?action=new" class="btn btn-primary btn-sm ">Agregar</a>
   </div>
 </div></nav>
 <main class="container my-4">

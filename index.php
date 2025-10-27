@@ -144,8 +144,6 @@ function header_html($title='Residentes', $isFull=false){ ?>
  body{background:#f6f7fb}.card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
  .btn-rounded{border-radius:2rem}.table thead th{font-weight:600}
  
- /*.btnpagar{display:none;}*/
- /*.btnpagar:hover{display}*/
  
  
 </style>
@@ -154,9 +152,6 @@ function header_html($title='Residentes', $isFull=false){ ?>
   <a class="navbar-brand fw-bold" href="?">RESIDENCIAL COOPNAMA II</a>
   <div class="ms-auto d-flex gap-2">
 
-      <!--<a href="?" class="btn btn-outline-secondary btn-sm">Vista simple</a>-->
-
-    <!--<a href="?action=new" class="btn btn-primary btn-sm btn-rounded">Agregar</a>-->
   </div>
 </div></nav>
 <main class="container my-4">
@@ -221,11 +216,7 @@ if ($action==='index') {
     <div class="dt-controls d-flex flex-wrap gap-3 justify-content-between align-items-center"></div>
   </div>
 
-  
 
-
-  
-  
   
   <div class="card-body">
     <h5 class="mb-3">LISTA DE COPROPIETARIOS</h5>
@@ -237,14 +228,12 @@ if ($action==='index') {
         <tbody>
         <?php foreach($rows as $r): ?>
           <tr>
-            <!--<td><?= (int)$r['id'] ?></td>-->
             <td><?= e($r['edif_apto']) ?></td>
             <td><?= e($r['nombres_apellidos']) ?></td>
             <td><?= e(format_cedula($r['cedula'])) ?></td>
             <td><?= e($r['telefono']) ?></td>
             <td class="text-center" id="btnpagar">
               <a class="btn btn-primary btn-sm" href="?action=pagar&id=<?=$r['id']?>">PAGAR MANTENIMIENTO</a>
-              <!--<a class="btn btn-danger btn-sm btn-delete" href="?action=delete&id=<?//=$r['id']?>">Eliminar</a>-->
             </td>
           </tr>
         <?php endforeach; ?>
@@ -323,18 +312,11 @@ if ($action==='new' || $action==='pagar') {
           <label class="form-label">Monto Pagado</label>
           <input type="text" name="monto_pagado" class="form-control" placeholder="0.00" value="<?=e($data['monto_pagado'])?>">
         </div>
-        <!--<div class="col-md-3 d-flex align-items-end">-->
-        <!--  <div class="form-check">-->
-        <!--    <input class="form-check-input" type="checkbox" id="no_rec" name="no_recurrente" <?= $data['no_recurrente'] ? 'checked' : '' ?>>-->
-        <!--    <label class="form-check-label" for="no_rec">No recurrente</label>-->
-        <!--  </div>-->
-        <!--</div>-->
       </div>
 
       <div class="d-flex gap-2 mt-4">
         <button class="btn btn-primary"><?=$editing?'Actualizar':'Guardar'?></button>
         <a class="btn btn-outline-secondary" href="?">Cancelar</a>
-        <!--<a class="btn btn-outline-dark" href="?action=full">Vista completa</a>-->
       </div>
     </form>
   </div></div></div></div>
