@@ -31,14 +31,9 @@ function cedula_valida($digits){
   for($i=0;$i<10;$i++){ $p=$d[$i]*$m[$i]; if($p>=10)$p=intdiv($p,10)+($p%10); $s+=$p; }
   return ( (10-($s%10))%10 ) == $d[10];
 }
-function toDecimal($v){ // admite "1,000.50" o "1000,50"
-  $v = trim((string)$v); if($v==='') return null;
-  $v = str_replace([' ', ','], ['', '.'], $v);
-  return is_numeric($v) ? number_format((float)$v, 2, '.', '') : null;
-}
+function toDecimal($v){ $v = trim((string)$v); if($v==='') return null; $v = str_replace([' ', ','], ['', '.'], $v); return is_numeric($v) ? number_format((float)$v, 2, '.', '') : null; }
 function toDateOrNull($v){
   $v = trim((string)$v); if($v==='') return null;
-  // admite YYYY-MM-DD o DD/MM/YYYY
   if(preg_match('~^\d{4}-\d{2}-\d{2}$~',$v)) return $v;
   if(preg_match('~^(\d{2})/(\d{2})/(\d{4})$~',$v,$m)) return "{$m[3]}-{$m[2]}-{$m[1]}";
   return null;
@@ -142,17 +137,12 @@ function header_html($title='Residentes', $isFull=false){ ?>
 <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 <style>
  body{background:#f6f7fb}.card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
- .btn-rounded{border-radius:2rem}.table thead th{font-weight:600}
- 
- 
- 
+ .table thead th{font-weight:600}
 </style>
 </head><body>
 <nav class="navbar navbar-expand-lg bg-white shadow-sm"><div class="container">
   <a class="navbar-brand fw-bold" href="?">RESIDENCIAL COOPNAMA II</a>
-  <div class="ms-auto d-flex gap-2">
-
-  </div>
+  <div class="ms-auto d-flex gap-2"></div>
 </div></nav>
 <main class="container my-4">
 <?php }
@@ -167,27 +157,21 @@ function footer_html(){ ?>
 $(function(){
   var $tbl = $('#tabla');
   if ($tbl.length) {
-    // Ocultamos la colocación por defecto de length (l) y filter (f) y luego los movemos
+    // Inicializa DataTables SIN controles nativos de buscar/length
     var dt = $tbl.DataTable({
       pageLength: 10,
       lengthMenu: [5,10,25,50,100],
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-      dom: 't<"d-none"lf>ip',   // l = length, f = filter (se renderizan dentro de un contenedor oculto)
-      columnDefs: [{ targets: -1, className: 'text-center' }] // centra la columna Acciones
+      dom: 'tip', // t=table, i=info, p=pagination (sin l ni f)
+      columnDefs: [{ targets: -1, className: 'text-center' }]
     });
 
-    // Mueve los controles al contenedor que creamos en el card-header
-    var $wrap = $(dt.table().container());
-    var $controls = $('.dt-controls');
+    // Conectar controles personalizados
+    $('#globalSearch').on('input', function(){ dt.search(this.value).draw(); });
+    $('#lenSelect').on('change', function(){ dt.page.len(parseInt(this.value,10)).draw(); });
 
-    $controls
-      .append($wrap.find('.dataTables_length'))   // "Mostrar X registros"
-      .append($wrap.find('.dataTables_filter'));  // "Buscar"
-
-    // Unos retoques de Bootstrap
-    $controls.find('select').addClass('form-select form-select-sm');
-    $controls.find('input[type="search"]').addClass('form-control form-control-sm').attr('placeholder','Buscar...');
-    $controls.find('label').addClass('mb-0'); // compacta
+    // Sincroniza el select con el valor inicial de DT
+    $('#lenSelect').val(dt.page.len());
   }
 
   $(document).on('click', '.btn-delete', function(e){
@@ -209,41 +193,59 @@ if ($action==='index') {
   if(isset($_GET['updated'])) echo '<div class="alert alert-info">Registro actualizado.</div>';
   if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro eliminado.</div>';
   ?>
-  <div class="card">
-      
-  <!-- NUEVO: encabezado para los controles -->
-  <div class="card-header bg-white">
-    <div class="dt-controls d-flex flex-wrap gap-3 justify-content-between align-items-center"></div>
+
+  <!-- CARD DE CONTROLES (separada) -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-center">
+        <div class="col-sm-6 d-flex align-items-center gap-2">
+          <span>Mostrar</span>
+          <select id="lenSelect" class="form-select form-select-sm" style="width:auto;">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <span class="text-muted">registros</span>
+        </div>
+        <div class="col-sm-6 d-flex align-items-center justify-content-sm-end gap-2">
+          <label for="globalSearch" class="mb-0">Buscar:</label>
+          <input id="globalSearch" type="search" class="form-control form-control-sm" placeholder="Buscar...">
+        </div>
+      </div>
+    </div>
   </div>
 
-
-  
-  <div class="card-body">
-    <h5 class="mb-3">LISTA DE COPROPIETARIOS</h5>
-    <div class="table-responsive">
-      <table id="tabla" class="table table-striped table-bordered align-middle">
-        <thead class="table-light"><tr>
-          <!--th>ID</th--><th>Edif/Apto</th><th>Nombres y Apellidos</th><th>Cédula</th><th>Teléfono</th><th>Acciones</th>
-        </tr></thead>
-        <tbody>
-        <?php foreach($rows as $r): ?>
-          <tr>
-            <td><?= e($r['edif_apto']) ?></td>
-            <td><?= e($r['nombres_apellidos']) ?></td>
-            <td><?= e(format_cedula($r['cedula'])) ?></td>
-            <td><?= e($r['telefono']) ?></td>
-            <td class="text-center" id="btnpagar">
-              <a class="btn btn-primary btn-sm" href="?action=pagar&id=<?=$r['id']?>">PAGAR MANTENIMIENTO</a>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table>
+  <!-- CARD DE TABLA -->
+  <div class="card">
+    <div class="card-body">
+      <h5 class="mb-3">LISTA DE COPROPIETARIOS</h5>
+      <div class="table-responsive">
+        <table id="tabla" class="table table-striped table-bordered align-middle">
+          <thead class="table-light"><tr>
+            <th>Edif/Apto</th><th>Nombres y Apellidos</th><th>Cédula</th><th>Teléfono</th><th>Acciones</th>
+          </tr></thead>
+          <tbody>
+          <?php foreach($rows as $r): ?>
+            <tr>
+              <td><?= e($r['edif_apto']) ?></td>
+              <td><?= e($r['nombres_apellidos']) ?></td>
+              <td><?= e(format_cedula($r['cedula'])) ?></td>
+              <td><?= e($r['telefono']) ?></td>
+              <td class="text-center">
+                <a class="btn btn-primary btn-sm" href="?action=pagar&id=<?= (int)$r['id'] ?>">PAGAR MANTENIMIENTO</a>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div></div>
+  </div>
+
   <?php footer_html(); exit;
 }
-
 
 /* 5.3 Formulario (Nuevo/pagar) */
 if ($action==='new' || $action==='pagar') {
