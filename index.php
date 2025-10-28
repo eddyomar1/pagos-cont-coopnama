@@ -360,15 +360,15 @@ if ($action==='new' || $action==='pagar') {
             <label class="form-label">Mora</label>
             <input type="text" name="mora" class="form-control" placeholder="0.00" value="<?=e($data['mora'])?>">
           </div>
-<div class="col-md-3">
-  <label class="form-label">Monto a Pagar</label>
-  <input
-    type="text"
-    name="monto_a_pagar"
-    class="form-control"
-    placeholder="0.00"
-    value="<?= e(($data['monto_a_pagar'] !== '' && $data['monto_a_pagar'] !== null) ? $data['monto_a_pagar'] : $monto_sugerido) ?>">
-</div>
+          <div class="col-md-3">
+            <label class="form-label">Monto a Pagar</label>
+            <input type="text" name="monto_a_pagar" class="form-control" placeholder="1000.00" value="<?= e(($data['monto_a_pagar'] !== '' && $data['monto_a_pagar'] !== null) ? $data['monto_a_pagar'] : $monto_sugerido) ?>">
+          </div>
+
+
+
+
+
 
           <div class="col-md-3">
             <label class="form-label">Monto Pagado</label>
@@ -380,11 +380,9 @@ if ($action==='new' || $action==='pagar') {
       <!-- CARD CUOTAS PENDIENTES -->
       <div class="card mt-3"><div class="card-body">
         <h6 class="mb-2">Cuotas pendientes desde <?= e(fecha_larga_es($BASE_DUE)) ?></h6>
-        <p class="text-muted mb-3">
-  Meses adeudados: <strong><?= $cantidad ?></strong> &mdash;
-  Monto sugerido: <strong>RD$ <?= number_format($monto_sugerido_num, 2, '.', ',') ?></strong>
-</p>
-
+        <p class="text-muted mb-3">Pendientes:
+          <span class="badge bg-<?= $cantidad? 'warning text-dark':'success' ?>"><?= $cantidad ?></span>
+        </p>
 
         <?php if ($pendientes): ?>
           <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2">
