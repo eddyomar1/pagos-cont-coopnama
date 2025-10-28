@@ -31,12 +31,52 @@ function cedula_valida($digits){
   for($i=0;$i<10;$i++){ $p=$d[$i]*$m[$i]; if($p>=10)$p=intdiv($p,10)+($p%10); $s+=$p; }
   return ( (10-($s%10))%10 ) == $d[10];
 }
-function toDecimal($v){ $v = trim((string)$v); if($v==='') return null; $v = str_replace([' ', ','], ['', '.'], $v); return is_numeric($v) ? number_format((float)$v, 2, '.', '') : null; }
+function toDecimal($v){
+  $v = trim((string)$v); if($v==='') return null;
+  $v = str_replace([' ', ','], ['', '.'], $v);
+  return is_numeric($v) ? number_format((float)$v, 2, '.', '') : null;
+}
 function toDateOrNull($v){
   $v = trim((string)$v); if($v==='') return null;
   if(preg_match('~^\d{4}-\d{2}-\d{2}$~',$v)) return $v;
   if(preg_match('~^(\d{2})/(\d{2})/(\d{4})$~',$v,$m)) return "{$m[3]}-{$m[2]}-{$m[1]}";
   return null;
+}
+
+/* --- Helpers de vencimientos (día 5) --- */
+function fecha_larga_es($ymd){
+  static $meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  $ts = strtotime($ymd);
+  return '5 de '.$meses[(int)date('n',$ts)-1].' de '.date('Y',$ts);
+}
+function anclar_a_quinto($date){
+  $d = new DateTime($date);
+  $quinto = new DateTime($d->format('Y-m-05'));
+  if ($d < $quinto) $quinto->modify('-1 month');
+  return $quinto;
+}
+function cuotas_pendientes($base='2025-10-05', $ultima_pagada=null){
+  $hoy = new DateTime('today');
+  $ultimo_venc = new DateTime(date('Y-m-05'));
+  if ($hoy < $ultimo_venc) $ultimo_venc->modify('-1 month');
+
+  $inicio = new DateTime($base);
+  if ($ultima_pagada) {
+    $pagada_quinto = anclar_a_quinto($ultima_pagada);
+    if ($pagada_quinto >= $inicio) $inicio = (clone $pagada_quinto)->modify('+1 month');
+  }
+
+  $out=[];
+  for ($d=clone $inicio; $d <= $ultimo_venc; $d->modify('+1 month')) {
+    $out[] = $d->format('Y-m-d'); // siempre día 5
+  }
+  return $out;
+}
+function proximo_quinto(){
+  $hoy = new DateTime('today');
+  $quinto = new DateTime(date('Y-m-05'));
+  if ($hoy >= $quinto) $quinto->modify('+1 month');
+  return $quinto->format('Y-m-d');
 }
 
 $action = $_GET['action'] ?? 'index';
@@ -48,7 +88,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $cedula_in         = body('cedula');
   $codigo            = body('codigo');
   $telefono          = body('telefono');
-  $fecha_x_pagar     = toDateOrNull(body('fecha_x_pagar'));
+  $fecha_x_pagar     = toDateOrNull(body('fecha_x_pagar')); // vendrá del hidden si se usa en "new"
   $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
   $mora              = toDecimal(body('mora')) ?? 0;
   $monto_a_pagar     = toDecimal(body('monto_a_pagar')) ?? 0;
@@ -88,7 +128,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $cedula_in         = body('cedula');
   $codigo            = body('codigo');
   $telefono          = body('telefono');
-  $fecha_x_pagar     = toDateOrNull(body('fecha_x_pagar'));
+  $fecha_x_pagar     = toDateOrNull(body('fecha_x_pagar')); // ahora viene del hidden seleccionado
   $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
   $mora              = toDecimal(body('mora')) ?? 0;
   $monto_a_pagar     = toDecimal(body('monto_a_pagar')) ?? 0;
@@ -157,22 +197,23 @@ function footer_html(){ ?>
 $(function(){
   var $tbl = $('#tabla');
   if ($tbl.length) {
-    // Inicializa DataTables SIN controles nativos de buscar/length
     var dt = $tbl.DataTable({
       pageLength: 10,
       lengthMenu: [5,10,25,50,100],
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-      dom: 'tip', // t=table, i=info, p=pagination (sin l ni f)
+      dom: 'tip', // sin controles nativos
       columnDefs: [{ targets: -1, className: 'text-center' }]
     });
-
-    // Conectar controles personalizados
     $('#globalSearch').on('input', function(){ dt.search(this.value).draw(); });
     $('#lenSelect').on('change', function(){ dt.page.len(parseInt(this.value,10)).draw(); });
-
-    // Sincroniza el select con el valor inicial de DT
     $('#lenSelect').val(dt.page.len());
   }
+
+  // Sincroniza selección de cuota (día 5)
+  $(document).on('change', '.due-option', function(){
+    $('#fecha_x_pagar').val(this.value);
+    $('#dueSelected').text($(this).data('label'));
+  });
 
   $(document).on('click', '.btn-delete', function(e){
     if (!confirm('¿Eliminar este registro?')) e.preventDefault();
@@ -247,6 +288,7 @@ if ($action==='index') {
   <?php footer_html(); exit;
 }
 
+
 /* 5.3 Formulario (Nuevo/pagar) */
 if ($action==='new' || $action==='pagar') {
   $editing = $action==='pagar';
@@ -263,65 +305,110 @@ if ($action==='new' || $action==='pagar') {
   $errors=$_SESSION['errors'] ?? []; $_SESSION['old']=$_SESSION['errors']=null;
 
   header_html($editing?'Editar residente':'Agregar residente', false);
+
+  // Cálculo de cuotas pendientes
+  $BASE_DUE   = '2025-10-05';
+  $pendientes = cuotas_pendientes($BASE_DUE, $data['fecha_pagada'] ?: null);
+  $seleccion  = $pendientes ? end($pendientes) : proximo_quinto();
+  $cantidad   = count($pendientes);
   ?>
   <div class="row justify-content-center"><div class="col-lg-10">
-  <div class="card"><div class="card-body">
-    <h5 class="card-title mb-3"><?=$editing?'pagar':'Agregar'?> residente</h5>
-    <?php if($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach($errors as $m) echo "<li>".e($m)."</li>"; ?></ul></div><?php endif; ?>
 
     <form method="post" action="?action=<?=$editing?'update':'store'?>">
+
       <?php if($editing): ?><input type="hidden" name="id" value="<?= (int)$data['id'] ?>"><?php endif; ?>
 
-      <div class="row g-3">
-        <div class="col-md-3">
-          <label class="form-label">Edif/Apto *</label>
-          <input type="text" name="edif_apto" class="form-control" maxlength="60" value="<?=e($data['edif_apto'])?>" disabled>
-        </div>
-        <div class="col-md-5">
-          <label class="form-label">Nombres y Apellidos *</label>
-          <input type="text" name="nombres_apellidos" class="form-control" maxlength="255" value="<?=e($data['nombres_apellidos'])?>" disabled>
-        </div>
-        <div class="col-md-2">
-          <label class="form-label">Cédula *</label>
-          <input type="text" name="cedula" class="form-control" maxlength="13" placeholder="001-1234567-8" value="<?=e(format_cedula($data['cedula']))?>" disabled>
-        </div>
-        <div class="col-md-2">
-          <label class="form-label">Código</label>
-          <input type="text" name="codigo" class="form-control" maxlength="30" value="<?=e($data['codigo'])?>" disabled>
-        </div>
+      <!-- CARD DATOS -->
+      <div class="card"><div class="card-body">
+        <h5 class="card-title mb-3"><?=$editing?'pagar':'Agregar'?> residente</h5>
+        <?php if($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach($errors as $m) echo "<li>".e($m)."</li>"; ?></ul></div><?php endif; ?>
 
-        <div class="col-md-3">
-          <label class="form-label">Teléfono</label>
-          <input type="text" name="telefono" class="form-control" maxlength="50" value="<?=e($data['telefono'])?>" disabled>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Fecha x Pagar</label>
-          <input type="date" name="fecha_x_pagar" class="form-control" value="<?=e($data['fecha_x_pagar'])?>">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Fecha Pagada</label>
-          <input type="date" name="fecha_pagada" class="form-control" value="<?=e($data['fecha_pagada'])?>">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Mora</label>
-          <input type="text" name="mora" class="form-control" placeholder="0.00" value="<?=e($data['mora'])?>">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Monto a Pagar</label>
-          <input type="text" name="monto_a_pagar" class="form-control" placeholder="0.00" value="<?=e($data['monto_a_pagar'])?>">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Monto Pagado</label>
-          <input type="text" name="monto_pagado" class="form-control" placeholder="0.00" value="<?=e($data['monto_pagado'])?>">
-        </div>
-      </div>
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Edif/Apto *</label>
+            <input type="text" name="edif_apto" class="form-control" maxlength="60" value="<?=e($data['edif_apto'])?>" <?=$editing?'disabled':''?>>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Nombres y Apellidos *</label>
+            <input type="text" name="nombres_apellidos" class="form-control" maxlength="255" value="<?=e($data['nombres_apellidos'])?>" <?=$editing?'disabled':''?>>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Cédula *</label>
+            <input type="text" name="cedula" class="form-control" maxlength="13" placeholder="001-1234567-8" value="<?=e(format_cedula($data['cedula']))?>" <?=$editing?'disabled':''?>>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Código</label>
+            <input type="text" name="codigo" class="form-control" maxlength="30" value="<?=e($data['codigo'])?>" <?=$editing?'disabled':''?>>
+          </div>
 
-      <div class="d-flex gap-2 mt-4">
+          <div class="col-md-3">
+            <label class="form-label">Teléfono</label>
+            <input type="text" name="telefono" class="form-control" maxlength="50" value="<?=e($data['telefono'])?>" <?=$editing?'disabled':''?>>
+          </div>
+
+          <!-- NOTA: Fecha x pagar ya NO se muestra como input visible -->
+          <div class="col-md-3">
+            <label class="form-label">Fecha Pagada</label>
+            <input type="date" name="fecha_pagada" class="form-control" value="<?=e($data['fecha_pagada'])?>">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Mora</label>
+            <input type="text" name="mora" class="form-control" placeholder="0.00" value="<?=e($data['mora'])?>">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Monto a Pagar</label>
+            <input type="text" name="monto_a_pagar" class="form-control" placeholder="0.00" value="<?=e($data['monto_a_pagar'])?>">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Monto Pagado</label>
+            <input type="text" name="monto_pagado" class="form-control" placeholder="0.00" value="<?=e($data['monto_pagado'])?>">
+          </div>
+        </div>
+      </div></div>
+
+      <!-- CARD CUOTAS PENDIENTES -->
+      <div class="card mt-3"><div class="card-body">
+        <h6 class="mb-2">Cuotas pendientes desde <?= e(fecha_larga_es($BASE_DUE)) ?></h6>
+        <p class="text-muted mb-3">Pendientes:
+          <span class="badge bg-<?= $cantidad? 'warning text-dark':'success' ?>"><?= $cantidad ?></span>
+        </p>
+
+        <?php if ($pendientes): ?>
+          <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2">
+            <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
+              <div class="col">
+                <div class="form-check">
+                  <input class="form-check-input due-option" type="radio"
+                         name="__due_pick" id="due<?= $i ?>"
+                         value="<?= e($venc) ?>" data-label="<?= e($label) ?>"
+                         <?= $venc===$seleccion?'checked':''; ?>>
+                  <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="alert alert-success mb-0">
+            No hay cuotas pendientes. Próximo vencimiento:
+            <strong><?= e(fecha_larga_es(proximo_quinto())) ?></strong>.
+          </div>
+        <?php endif; ?>
+
+        <!-- hidden que se envía en el POST -->
+        <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="<?= e($seleccion) ?>">
+
+        <div class="mt-3 small text-muted">
+          Seleccionado: <span id="dueSelected"><?= e(fecha_larga_es($seleccion)) ?></span>
+        </div>
+      </div></div>
+
+      <div class="d-flex gap-2 mt-3">
         <button class="btn btn-primary"><?=$editing?'Actualizar':'Guardar'?></button>
         <a class="btn btn-outline-secondary" href="?">Cancelar</a>
       </div>
+
     </form>
-  </div></div></div></div>
+  </div></div>
   <?php footer_html(); exit;
 }
 
