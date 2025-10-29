@@ -137,9 +137,6 @@ if ($selected_dues) {
 }
 
 
-
-
-
 }
 
 if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
@@ -430,9 +427,9 @@ if ($action==='new' || $action==='pagar') {
     <span class="text-muted">
       Pendientes totales: <span class="badge bg-<?= $cantidad? 'warning text-dark':'success' ?>"><?= $cantidad ?></span>
     </span>
-    <span class="text-muted">
+    <!-- <span class="text-muted">
       Seleccionadas: <strong id="countSelected">0</strong>
-    </span>
+    </span> -->
     <span class="text-muted">
       Total seleccionado: <strong>RD$ <span id="totalSelected">0.00</span></strong>
     </span>
