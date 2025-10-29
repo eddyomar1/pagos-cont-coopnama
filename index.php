@@ -414,8 +414,8 @@ if ($action==='new' || $action==='pagar') {
           </div>
 
           <div class="col-md-3">
-            <label class="form-label" disabled>Monto a Pagar</label>
-            <input type="text" name="monto_a_pagar" class="form-control" placeholder="1000.00" value="<?= e(($data['monto_a_pagar'] !== '' && $data['monto_a_pagar'] !== null) ? $data['monto_a_pagar'] : $monto_sugerido) ?>">
+            <label class="form-label">Monto a Pagar</label>
+            <input type="text" name="monto_a_pagar" class="form-control" placeholder="1000.00" value="<?= e(($data['monto_a_pagar'] !== '' && $data['monto_a_pagar'] !== null) ? $data['monto_a_pagar'] : $monto_sugerido) ?>" disabled>
           </div>
 
 
