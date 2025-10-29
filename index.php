@@ -423,9 +423,8 @@ if ($action==='new' || $action==='pagar') {
       </div></div>
 
       <!-- CARD CUOTAS PENDIENTES -->
-      <!-- CARD CUOTAS PENDIENTES -->
 <div class="card mt-3"><div class="card-body">
-  <h6 class="mb-2">Cuotas pendientes desde <?= e(fecha_larga_es($BASE_DUE)) ?></h6>
+  <h6 class="mb-2">Cuotas pendientes</h6>
 
   <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
     <span class="text-muted">
