@@ -356,47 +356,56 @@ if ($action==='new' || $action==='pagar') {
       <?php if($editing): ?><input type="hidden" name="id" value="<?= (int)$data['id'] ?>"><?php endif; ?>
 
       <!-- CARD DATOS -->
-      <div class="card"><div class="card-body">
-        <h5 class="card-title mb-3"><?=$editing?'pagar':'Agregar'?> residente</h5>
-        <?php if($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach($errors as $m) echo "<li>".e($m)."</li>"; ?></ul></div><?php endif; ?>
+<!-- CARD CUOTAS PENDIENTES -->
+<div class="card mt-3"><div class="card-body">
+  <h6 class="mb-2">Cuotas pendientes desde <?= e(fecha_larga_es($BASE_DUE)) ?></h6>
 
-        <div class="row g-3">
-          <div class="col-md-3">
-            <label class="form-label">Edif/Apto *</label>
-            <input type="text" name="edif_apto" class="form-control" maxlength="60" value="<?=e($data['edif_apto'])?>" <?=$editing?'disabled':''?>>
-          </div>
-          <div class="col-md-5">
-            <label class="form-label">Nombres y Apellidos *</label>
-            <input type="text" name="nombres_apellidos" class="form-control" maxlength="255" value="<?=e($data['nombres_apellidos'])?>" <?=$editing?'disabled':''?>>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Cédula *</label>
-            <input type="text" name="cedula" class="form-control" maxlength="13" placeholder="001-1234567-8" value="<?=e(format_cedula($data['cedula']))?>" <?=$editing?'disabled':''?>>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Código</label>
-            <input type="text" name="codigo" class="form-control" maxlength="30" value="<?=e($data['codigo'])?>" <?=$editing?'disabled':''?>>
-          </div>
+  <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+    <span class="text-muted">
+      Pendientes totales: <span class="badge bg-<?= $cantidad? 'warning text-dark':'success' ?>"><?= $cantidad ?></span>
+    </span>
+    <span class="text-muted">
+      Seleccionadas: <strong id="countSelected">0</strong>
+    </span>
+    <span class="text-muted">
+      Total seleccionado: <strong>RD$ <span id="totalSelected">0.00</span></strong>
+    </span>
+  </div>
 
-          <div class="col-md-3">
-            <label class="form-label">Teléfono</label>
-            <input type="text" name="telefono" class="form-control" maxlength="50" value="<?=e($data['telefono'])?>" <?=$editing?'disabled':''?>>
+  <?php if ($pendientes): ?>
+    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2">
+      <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
+        <div class="col">
+          <div class="form-check">
+            <input
+              class="form-check-input due-option"
+              type="checkbox"
+              name="selected_dues[]"
+              id="due<?= $i ?>"
+              value="<?= e($venc) ?>"
+              data-label="<?= e($label) ?>"
+              checked
+            >
+            <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
           </div>
-
-          <!-- NOTA: Fecha x pagar ya NO se muestra como input visible -->
-          <div class="col-md-3">
-            <label class="form-label">Fecha Pagada</label>
-            <input type="date" name="fecha_pagada" class="form-control" value="<?=e($data['fecha_pagada'])?>">
-          </div>
-
-          <div class="col-md-3">
-            <label class="form-label">Monto a Pagar</label>
-            <input type="text" name="monto_a_pagar" class="form-control" placeholder="1000.00" value="<?= e(($data['monto_a_pagar'] !== '' && $data['monto_a_pagar'] !== null) ? $data['monto_a_pagar'] : $monto_sugerido) ?>">
-          </div>
-
-
         </div>
-      </div></div>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <div class="alert alert-success mb-0">
+      No hay cuotas pendientes. Próximo vencimiento:
+      <strong><?= e(fecha_larga_es(proximo_quinto())) ?></strong>.
+    </div>
+  <?php endif; ?>
+
+  <!-- hidden que se envía en el POST (último mes seleccionado) -->
+  <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="">
+
+  <div class="mt-3 small text-muted">
+    Seleccionadas: <span id="dueSelected">—</span>
+  </div>
+</div></div>
+
 
       <!-- CARD CUOTAS PENDIENTES -->
       <div class="card mt-3"><div class="card-body">
