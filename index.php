@@ -378,7 +378,7 @@ if ($action==='new' || $action==='pagar') {
             <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
               <div class="col">
                 <div class="form-check">
-                  <input class="form-check-input due-option" type="radio"
+                  <input class="form-check-input due-option" type="checkbox"
                          name="__due_pick" id="due<?= $i ?>"
                          value="<?= e($venc) ?>" data-label="<?= e($label) ?>"
                          <?= $venc===$seleccion?'checked':''; ?>>
