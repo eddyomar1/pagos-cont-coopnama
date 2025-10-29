@@ -79,6 +79,12 @@ function proximo_quinto(){
   return $quinto->format('Y-m-d');
 }
 
+function is_ymd($s){
+  return is_string($s) && preg_match('~^\d{4}-\d{2}-\d{2}$~', $s);
+}
+
+
+
 $action = $_GET['action'] ?? 'index';
 
 /*********** 3) Acciones CRUD ***********/
@@ -119,6 +125,21 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
     $_SESSION['errors']=[ "No se pudo guardar: ".$ex->getCode() ];
     $_SESSION['old']=$_POST; header('Location:?action=new'); exit;
   }
+
+
+// Si vienen cuotas seleccionadas (checkboxes), fijamos la lógica de negocio
+$selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues']) ? $_POST['selected_dues'] : [];
+$selected_dues = array_values(array_filter($selected_dues, 'is_ymd')); // solo YYYY-MM-DD válidas
+if ($selected_dues) {
+  sort($selected_dues);                       // ascendente
+  $fecha_x_pagar = end($selected_dues);       // la última (más reciente)
+  $monto_a_pagar = count($selected_dues) * 1000; // regla: 1000 por mes
+}
+
+
+
+
+
 }
 
 if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
@@ -162,6 +183,17 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     $_SESSION['old']=$_POST; header('Location:?action=pagar&id='.$id); exit;
   }
 }
+
+
+$selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues']) ? $_POST['selected_dues'] : [];
+$selected_dues = array_values(array_filter($selected_dues, 'is_ymd'));
+if ($selected_dues) {
+  sort($selected_dues);
+  $fecha_x_pagar = end($selected_dues);
+  $monto_a_pagar = count($selected_dues) * 1000;
+}
+
+
 
 if ($action === 'delete' && isset($_GET['id'])) {
   $id=(int)$_GET['id']; if($id>0){ $pdo->prepare("DELETE FROM residentes WHERE id=?")->execute([$id]); }
@@ -378,7 +410,7 @@ if ($action==='new' || $action==='pagar') {
             <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
               <div class="col">
                 <div class="form-check">
-                  <input class="form-check-input due-option" type="checkbox"
+                  <input class="form-check-input due-option" type="radio"
                          name="__due_pick" id="due<?= $i ?>"
                          value="<?= e($venc) ?>" data-label="<?= e($label) ?>"
                          <?= $venc===$seleccion?'checked':''; ?>>
