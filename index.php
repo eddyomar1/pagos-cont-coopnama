@@ -233,7 +233,7 @@ $(function(){
       pageLength: 10,
       lengthMenu: [5,10,25,50,100],
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-      dom: 'tip', // sin controles nativos
+      dom: 'tip',
       columnDefs: [{ targets: -1, className: 'text-center' }]
     });
     $('#globalSearch').on('input', function(){ dt.search(this.value).draw(); });
@@ -241,16 +241,40 @@ $(function(){
     $('#lenSelect').val(dt.page.len());
   }
 
-  // Sincroniza selección de cuota (día 5)
-  $(document).on('change', '.due-option', function(){
-    $('#fecha_x_pagar').val(this.value);
-    $('#dueSelected').text($(this).data('label'));
-  });
+  // === CUOTAS: checkboxes -> resumen y hidden ===
+  function recalcDueSelection(){
+    var $boxes = $('.due-option:checked');
+    var dates  = $boxes.map(function(){ return this.value; }).get();
+    dates.sort(); // YYYY-MM-DD ordena bien
 
+    var count  = dates.length;
+    var latest = count ? dates[dates.length-1] : '';
+
+    // Hidden para el backend (último mes seleccionado)
+    $('#fecha_x_pagar').val(latest);
+
+    // Lista legible y contadores
+    var labels = $boxes.map(function(){ return $(this).data('label'); }).get();
+    $('#dueSelected').text(labels.length ? labels.join(', ') : 'Ninguna');
+    $('#countSelected').text(count);
+
+    // Total = 1000 * #seleccionadas
+    var total = count * 1000;
+    $('input[name="monto_a_pagar"]').val(total.toFixed(2));
+    $('#totalSelected').text(
+      total.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2})
+    );
+  }
+
+  $(document).on('change', '.due-option', recalcDueSelection);
+  recalcDueSelection(); // inicial
+
+  // Confirmaciones
   $(document).on('click', '.btn-delete', function(e){
     if (!confirm('¿Eliminar este registro?')) e.preventDefault();
   });
 });
+
 </script>
 
 </body></html>
