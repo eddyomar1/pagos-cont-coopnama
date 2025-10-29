@@ -427,9 +427,9 @@ if ($action==='new' || $action==='pagar') {
     <span class="text-muted">
       Pendientes totales: <span class="badge bg-<?= $cantidad? 'warning text-dark':'success' ?>"><?= $cantidad ?></span>
     </span>
-    <!-- <span class="text-muted">
+    <span class="text-muted">
       Seleccionadas: <strong id="countSelected">0</strong>
-    </span> -->
+    </span>
     <span class="text-muted">
       Total seleccionado: <strong>RD$ <span id="totalSelected">0.00</span></strong>
     </span>
@@ -464,9 +464,9 @@ if ($action==='new' || $action==='pagar') {
   <!-- hidden que se envía en el POST (último mes seleccionado) -->
   <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="">
 
-  <div class="mt-3 small text-muted">
+  <!-- <div class="mt-3 small text-muted">
     Seleccionadas: <span id="dueSelected">—</span>
-  </div>
+  </div> -->
 </div></div>
 
 
