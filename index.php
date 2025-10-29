@@ -471,7 +471,7 @@ if ($action==='new' || $action==='pagar') {
 
 
       <div class="d-flex gap-2 mt-3">
-        <button class="btn btn-primary"><?=$editing?'crear recibo':'Guardar'?></button>
+        <button class="btn btn-primary"><?=$editing?'Crear recibo':'Guardar'?></button>
         <a class="btn btn-outline-secondary" href="?">Cancelar</a>
       </div>
 
