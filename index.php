@@ -357,24 +357,10 @@ if ($action==='new' || $action==='pagar') {
             <input type="date" name="fecha_pagada" class="form-control" value="<?=e($data['fecha_pagada'])?>">
           </div>
           <div class="col-md-3">
-            <label class="form-label">Mora</label>
-            <input type="text" name="mora" class="form-control" placeholder="0.00" value="<?=e($data['mora'])?>">
-          </div>
-          <div class="col-md-3">
             <label class="form-label">Monto a Pagar</label>
             <input type="text" name="monto_a_pagar" class="form-control" placeholder="1000.00" value="<?= e(($data['monto_a_pagar'] !== '' && $data['monto_a_pagar'] !== null) ? $data['monto_a_pagar'] : $monto_sugerido) ?>">
           </div>
 
-
-
-
-
-
-          <div class="col-md-3">
-            <label class="form-label">Monto Pagado</label>
-            <input type="text" name="monto_pagado" class="form-control" placeholder="0.00" value="<?=e($data['monto_pagado'])?>">
-          </div>
-        </div>
       </div></div>
 
       <!-- CARD CUOTAS PENDIENTES -->
