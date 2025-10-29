@@ -307,7 +307,7 @@ if ($action==='new' || $action==='pagar') {
   header_html($editing?'Editar residente':'Agregar residente', false);
 
   // Cálculo de cuotas pendientes
-  $BASE_DUE   = '2025-10-05';
+  $BASE_DUE   = '2025-9-05';
   $pendientes = cuotas_pendientes($BASE_DUE, $data['fecha_pagada'] ?: null);
   $seleccion  = $pendientes ? end($pendientes) : proximo_quinto();
   $cantidad   = count($pendientes);
