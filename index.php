@@ -1,7 +1,7 @@
 <?php
 /*************************************************
  * CRUD Residentes (PDO + Bootstrap + DataTables)
- * Vista simple y Vista completa (todas las columnas)
+ * + Registro de pagos en tabla aparte
  *************************************************/
 session_start();
 
@@ -78,23 +78,22 @@ function proximo_quinto(){
   if ($hoy >= $quinto) $quinto->modify('+1 month');
   return $quinto->format('Y-m-d');
 }
-
 function is_ymd($s){
   return is_string($s) && preg_match('~^\d{4}-\d{2}-\d{2}$~', $s);
 }
 
-
-
 $action = $_GET['action'] ?? 'index';
 
 /*********** 3) Acciones CRUD ***********/
+
+/* ========== CREAR RESIDENTE ========== */
 if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $edif_apto         = body('edif_apto');
   $nombres_apellidos = body('nombres_apellidos');
   $cedula_in         = body('cedula');
   $codigo            = body('codigo');
   $telefono          = body('telefono');
-  $fecha_x_pagar     = toDateOrNull(body('fecha_x_pagar')); // vendrá del hidden si se usa en "new"
+  $fecha_x_pagar     = toDateOrNull(body('fecha_x_pagar'));
   $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
   $mora              = toDecimal(body('mora')) ?? 0;
   $monto_a_pagar     = toDecimal(body('monto_a_pagar')) ?? 0;
@@ -110,35 +109,20 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
 
   if($errors){ $_SESSION['errors']=$errors; $_SESSION['old']=$_POST; header('Location:?action=new'); exit; }
 
-  try{
-    $stmt=$pdo->prepare(
-      "INSERT INTO residentes
-       (edif_apto,nombres_apellidos,cedula,codigo,telefono,fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,no_recurrente)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)"
-    );
-    $stmt->execute([
-      $edif_apto,$nombres_apellidos,$cedula_digits,$codigo ?: null,$telefono ?: null,
-      $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente
-    ]);
-    header('Location:?saved=1'); exit;
-  }catch(PDOException $ex){
-    $_SESSION['errors']=[ "No se pudo guardar: ".$ex->getCode() ];
-    $_SESSION['old']=$_POST; header('Location:?action=new'); exit;
-  }
-
-
-// Si vienen cuotas seleccionadas (checkboxes), fijamos la lógica de negocio
-$selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues']) ? $_POST['selected_dues'] : [];
-$selected_dues = array_values(array_filter($selected_dues, 'is_ymd')); // solo YYYY-MM-DD válidas
-if ($selected_dues) {
-  sort($selected_dues);                       // ascendente
-  $fecha_x_pagar = end($selected_dues);       // la última (más reciente)
-  $monto_a_pagar = count($selected_dues) * 1000; // regla: 1000 por mes
+  // guardamos residente
+  $stmt=$pdo->prepare(
+    "INSERT INTO residentes
+     (edif_apto,nombres_apellidos,cedula,codigo,telefono,fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,no_recurrente)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+  );
+  $stmt->execute([
+    $edif_apto,$nombres_apellidos,$cedula_digits,$codigo ?: null,$telefono ?: null,
+    $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente
+  ]);
+  header('Location:?saved=1'); exit;
 }
 
-
-}
-
+/* ========== PAGAR / CREAR RECIBO ========== */
 if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $id                = (int)body('id');
   $edif_apto         = body('edif_apto');
@@ -146,13 +130,26 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $cedula_in         = body('cedula');
   $codigo            = body('codigo');
   $telefono          = body('telefono');
-  $fecha_x_pagar     = toDateOrNull(body('fecha_x_pagar')); // ahora viene del hidden seleccionado
-  $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
+  $fecha_pagada      = toDateOrNull(body('fecha_pagada'));   // cuándo se está registrando que se pagó
   $mora              = toDecimal(body('mora')) ?? 0;
-  $monto_a_pagar     = toDecimal(body('monto_a_pagar')) ?? 0;
-  $monto_pagado      = toDecimal(body('monto_pagado')) ?? 0;
   $no_recurrente     = isset($_POST['no_recurrente']) ? 1 : 0;
 
+  // 1) leer los meses seleccionados (checkbox)
+  $selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues']) ? $_POST['selected_dues'] : [];
+  $selected_dues = array_values(array_filter($selected_dues, 'is_ymd')); // solo YYYY-MM-DD válidas
+
+  // 2) calcular montos según selección
+  $monto_base  = count($selected_dues) * 1000;
+  $monto_total = $monto_base + $mora;
+
+  // 3) la fecha_x_pagar que vamos a guardar en residentes será el ÚLTIMO mes seleccionado
+  $fecha_x_pagar = null;
+  if ($selected_dues) {
+    sort($selected_dues);
+    $fecha_x_pagar = end($selected_dues);
+  }
+
+  // Validaciones mínimas
   $errors=[];
   if($id<=0)                         $errors[]="ID inválido.";
   if(!required($edif_apto))          $errors[]="Edif/Apto es obligatorio.";
@@ -161,37 +158,53 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $cedula_digits = digits_only($cedula_in);
   if($cedula_in && !cedula_valida($cedula_digits)) $errors[]="Cédula no válida.";
 
-  if($errors){ $_SESSION['errors']=$errors; $_SESSION['old']=$_POST; header('Location:?action=pagar&id='.$id); exit; }
-
-  try{
-    $stmt=$pdo->prepare(
-      "UPDATE residentes SET
-        edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
-        fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
-       WHERE id=?"
-    );
-    $stmt->execute([
-      $edif_apto,$nombres_apellidos,$cedula_digits,$codigo ?: null,$telefono ?: null,
-      $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente,$id
-    ]);
-    header('Location:?updated=1'); exit;
-  }catch(PDOException $ex){
-    $_SESSION['errors']=[ "No se pudo actualizar: ".$ex->getCode() ];
-    $_SESSION['old']=$_POST; header('Location:?action=pagar&id='.$id); exit;
+  if($errors){
+    $_SESSION['errors']=$errors; $_SESSION['old']=$_POST; header('Location:?action=pagar&id='.$id); exit;
   }
+
+  // 4) actualizar residente (dejamos registro de la última fecha por pagar)
+  $stmt=$pdo->prepare(
+    "UPDATE residentes SET
+      edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
+      fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
+     WHERE id=?"
+  );
+  $stmt->execute([
+    $edif_apto,
+    $nombres_apellidos,
+    $cedula_digits,
+    $codigo ?: null,
+    $telefono ?: null,
+    $fecha_x_pagar,        // última cuota que está pagando
+    $fecha_pagada,         // fecha en la que él dice que pagó (puede ser hoy o antes)
+    $mora,
+    $monto_base,           // lo que debería pagar según cuotas
+    $monto_total,          // lo que efectivamente pagó incluyendo mora
+    $no_recurrente,
+    $id
+  ]);
+
+  // 5) insertar movimiento en tabla de pagos_residentes
+  //    aquí registramos el momento real de creación del recibo
+  $stmt2 = $pdo->prepare(
+    "INSERT INTO pagos_residentes
+      (residente_id, fecha_recibo, meses_pagados, monto_base, mora, monto_total, nota)
+     VALUES (?,?,?,?,?,?,?)"
+  );
+  $stmt2->execute([
+    $id,
+    date('Y-m-d H:i:s'),                     // momento en que se creó el recibo
+    json_encode($selected_dues, JSON_UNESCAPED_UNICODE),
+    $monto_base,
+    $mora,
+    $monto_total,
+    null
+  ]);
+
+  header('Location:?updated=1'); exit;
 }
 
-
-$selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues']) ? $_POST['selected_dues'] : [];
-$selected_dues = array_values(array_filter($selected_dues, 'is_ymd'));
-if ($selected_dues) {
-  sort($selected_dues);
-  $fecha_x_pagar = end($selected_dues);
-  $monto_a_pagar = count($selected_dues) * 1000;
-}
-
-
-
+/* ========== ELIMINAR RESIDENTE ========== */
 if ($action === 'delete' && isset($_GET['id'])) {
   $id=(int)$_GET['id']; if($id>0){ $pdo->prepare("DELETE FROM residentes WHERE id=?")->execute([$id]); }
   header('Location:?deleted=1'); exit;
@@ -211,7 +224,10 @@ function header_html($title='Residentes', $isFull=false){ ?>
 </head><body>
 <nav class="navbar navbar-expand-lg bg-white shadow-sm"><div class="container">
   <a class="navbar-brand fw-bold" href="?">RESIDENCIAL COOPNAMA II</a>
-  <div class="ms-auto d-flex gap-2"></div>
+  <div class="ms-auto d-flex gap-2">
+    <a href="?" class="btn btn-sm btn-outline-secondary">Residentes</a>
+    <a href="?action=pagos" class="btn btn-sm btn-outline-primary">Pagos</a>
+  </div>
 </div></nav>
 <main class="container my-4">
 <?php }
@@ -242,20 +258,14 @@ $(function(){
   function recalcDueSelection(){
     var $boxes = $('.due-option:checked');
     var dates  = $boxes.map(function(){ return this.value; }).get();
-    dates.sort(); // YYYY-MM-DD ordena bien
+    dates.sort();
 
     var count  = dates.length;
     var latest = count ? dates[dates.length-1] : '';
 
-    // Hidden para el backend (último mes seleccionado)
     $('#fecha_x_pagar').val(latest);
 
-    // Lista legible y contadores
-    var labels = $boxes.map(function(){ return $(this).data('label'); }).get();
-    $('#dueSelected').text(labels.length ? labels.join(', ') : 'Ninguna');
     $('#countSelected').text(count);
-
-    // Total = 1000 * #seleccionadas
     var total = count * 1000;
     $('input[name="monto_a_pagar"]').val(total.toFixed(2));
     $('#totalSelected').text(
@@ -264,14 +274,12 @@ $(function(){
   }
 
   $(document).on('change', '.due-option', recalcDueSelection);
-  recalcDueSelection(); // inicial
+  recalcDueSelection();
 
-  // Confirmaciones
   $(document).on('click', '.btn-delete', function(e){
     if (!confirm('¿Eliminar este registro?')) e.preventDefault();
   });
 });
-
 </script>
 
 </body></html>
@@ -279,7 +287,7 @@ $(function(){
 
 /*********** 5) Vistas ***********/
 
-/* 5.1 Listado simple */
+/* 5.1 Listado simple (residentes) */
 if ($action==='index') {
   header_html('Residentes', false);
   $rows=$pdo->query("SELECT * FROM residentes ORDER BY id DESC")->fetchAll();
@@ -287,8 +295,6 @@ if ($action==='index') {
   if(isset($_GET['updated'])) echo '<div class="alert alert-info">Registro actualizado.</div>';
   if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro eliminado.</div>';
   ?>
-
-  <!-- CARD DE CONTROLES (separada) -->
   <div class="card mb-3">
     <div class="card-body">
       <div class="row g-3 align-items-center">
@@ -311,7 +317,6 @@ if ($action==='index') {
     </div>
   </div>
 
-  <!-- CARD DE TABLA -->
   <div class="card">
     <div class="card-body">
       <h5 class="mb-3">LISTA DE COPROPIETARIOS</h5>
@@ -328,7 +333,7 @@ if ($action==='index') {
               <td><?= e(format_cedula($r['cedula'])) ?></td>
               <td><?= e($r['telefono']) ?></td>
               <td class="text-center">
-                <a class="btn btn-primary btn-sm" href="?action=pagar&id=<?= (int)$r['id'] ?>">PAGAR MANTENIMIENTO</a>
+                <a class="btn btn-primary btn-sm" href="?action=pagar&id=<?= (int)$r['id'] ?>">PAGAR / RECIBO</a>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -337,10 +342,66 @@ if ($action==='index') {
       </div>
     </div>
   </div>
-
   <?php footer_html(); exit;
 }
 
+/* 5.2 Listado de pagos */
+if ($action==='pagos') {
+  header_html('Pagos', false);
+  $pagos = $pdo->query("
+    SELECT p.*, r.nombres_apellidos, r.edif_apto
+    FROM pagos_residentes p
+    JOIN residentes r ON r.id = p.residente_id
+    ORDER BY p.id DESC
+  ")->fetchAll();
+  ?>
+  <div class="card">
+    <div class="card-body">
+      <h5 class="mb-3">Pagos registrados</h5>
+      <div class="table-responsive">
+        <table id="tabla" class="table table-striped table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>Residente</th>
+              <th>Edif/Apto</th>
+              <th>Fecha recibo</th>
+              <th>Meses pagados</th>
+              <th>Monto base</th>
+              <th>Mora</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach($pagos as $p):
+              $meses = json_decode($p['meses_pagados'], true) ?: [];
+              ?>
+              <tr>
+                <td><?= (int)$p['id'] ?></td>
+                <td><?= e($p['nombres_apellidos']) ?></td>
+                <td><?= e($p['edif_apto']) ?></td>
+                <td><?= e($p['fecha_recibo']) ?></td>
+                <td>
+                  <?php
+                    $labels = [];
+                    foreach($meses as $m){
+                      $labels[] = fecha_larga_es($m);
+                    }
+                    echo e(implode(', ', $labels));
+                  ?>
+                </td>
+                <td>RD$ <?= number_format($p['monto_base'],2,'.',',') ?></td>
+                <td>RD$ <?= number_format($p['mora'],2,'.',',') ?></td>
+                <td><strong>RD$ <?= number_format($p['monto_total'],2,'.',',') ?></strong></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <?php footer_html(); exit;
+}
 
 /* 5.3 Formulario (Nuevo/pagar) */
 if ($action==='new' || $action==='pagar') {
@@ -357,121 +418,110 @@ if ($action==='new' || $action==='pagar') {
   if(!empty($_SESSION['old'])) $data=array_merge($data,$_SESSION['old']);
   $errors=$_SESSION['errors'] ?? []; $_SESSION['old']=$_SESSION['errors']=null;
 
-  header_html($editing?'Editar residente':'Agregar residente', false);
+  header_html($editing?'Pagar mantenimiento':'Agregar residente', false);
 
   // Cálculo de cuotas pendientes
-  $BASE_DUE   = '2025-9-05';
+  $BASE_DUE   = '2025-10-05';
   $pendientes = cuotas_pendientes($BASE_DUE, $data['fecha_pagada'] ?: null);
-  $seleccion  = $pendientes ? end($pendientes) : proximo_quinto();
   $cantidad   = count($pendientes);
-
-  // NUEVO: monto sugerido = meses pendientes * 1000
-  $monto_sugerido_num = $cantidad * 1000;
-  $monto_sugerido     = number_format($monto_sugerido_num, 2, '.', '');
-
   ?>
   <div class="row justify-content-center"><div class="col-lg-10">
-
-    <form method="post" action="?action=<?=$editing?'update':'store'?>">
+    <form method="post" action="?action=<?= $editing?'update':'store' ?>">
 
       <?php if($editing): ?><input type="hidden" name="id" value="<?= (int)$data['id'] ?>"><?php endif; ?>
 
       <!-- CARD DATOS -->
       <div class="card"><div class="card-body">
-        <h5 class="card-title mb-3"><?=$editing?'pagar':'Agregar'?> residente</h5>
+        <h5 class="card-title mb-3"><?= $editing?'Pagar / Crear recibo':'Agregar residente' ?></h5>
         <?php if($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach($errors as $m) echo "<li>".e($m)."</li>"; ?></ul></div><?php endif; ?>
 
         <div class="row g-3">
           <div class="col-md-3">
             <label class="form-label">Edif/Apto *</label>
-            <input type="text" name="edif_apto" class="form-control" maxlength="60" value="<?=e($data['edif_apto'])?>" <?=$editing?'disabled':''?>>
+            <input type="text" name="edif_apto" class="form-control" maxlength="60" value="<?=e($data['edif_apto'])?>" <?= $editing?'disabled':'' ?>>
           </div>
           <div class="col-md-5">
             <label class="form-label">Nombres y Apellidos *</label>
-            <input type="text" name="nombres_apellidos" class="form-control" maxlength="255" value="<?=e($data['nombres_apellidos'])?>" <?=$editing?'disabled':''?>>
+            <input type="text" name="nombres_apellidos" class="form-control" maxlength="255" value="<?=e($data['nombres_apellidos'])?>" <?= $editing?'disabled':'' ?>>
           </div>
           <div class="col-md-2">
             <label class="form-label">Cédula *</label>
-            <input type="text" name="cedula" class="form-control" maxlength="13" placeholder="001-1234567-8" value="<?=e(format_cedula($data['cedula']))?>" <?=$editing?'disabled':''?>>
+            <input type="text" name="cedula" class="form-control" maxlength="13" value="<?=e(format_cedula($data['cedula']))?>" <?= $editing?'disabled':'' ?>>
           </div>
           <div class="col-md-2">
             <label class="form-label">Código</label>
-            <input type="text" name="codigo" class="form-control" maxlength="30" value="<?=e($data['codigo'])?>" <?=$editing?'disabled':''?>>
+            <input type="text" name="codigo" class="form-control" maxlength="30" value="<?=e($data['codigo'])?>" <?= $editing?'disabled':'' ?>>
           </div>
 
           <div class="col-md-3">
             <label class="form-label">Teléfono</label>
-            <input type="text" name="telefono" class="form-control" maxlength="50" value="<?=e($data['telefono'])?>" <?=$editing?'disabled':''?>>
-          </div>
-
-          <!-- NOTA: Fecha x pagar ya NO se muestra como input visible -->
-          <div class="col-md-3">
-            <label class="form-label">Fecha Pagada</label>
-            <input type="date" name="fecha_pagada" class="form-control" value="<?=e($data['fecha_pagada'])?>">
+            <input type="text" name="telefono" class="form-control" maxlength="50" value="<?=e($data['telefono'])?>" <?= $editing?'disabled':'' ?>>
           </div>
 
           <div class="col-md-3">
-            <label class="form-label">Monto a Pagar</label>
-            <input type="text" name="monto_a_pagar" class="form-control" placeholder="1000.00" value="<?= e(($data['monto_a_pagar'] !== '' && $data['monto_a_pagar'] !== null) ? $data['monto_a_pagar'] : $monto_sugerido) ?>" disabled>
+            <label class="form-label">Fecha pagada (ingresada por quien cobra)</label>
+            <input type="date" name="fecha_pagada" class="form-control" value="<?= e($data['fecha_pagada']) ?>">
           </div>
 
+          <div class="col-md-3">
+            <label class="form-label">Mora (si aplica)</label>
+            <input type="text" name="mora" class="form-control" placeholder="0.00" value="<?= e($data['mora']) ?>">
+          </div>
 
+          <div class="col-md-3">
+            <label class="form-label">Monto a pagar (auto)</label>
+            <input type="text" name="monto_a_pagar" class="form-control" value="0.00" readonly>
+          </div>
         </div>
       </div></div>
 
       <!-- CARD CUOTAS PENDIENTES -->
-<div class="card mt-3"><div class="card-body">
-  <h6 class="mb-2">Cuotas pendientes</h6>
+      <div class="card mt-3"><div class="card-body">
+        <h6 class="mb-2">Cuotas pendientes</h6>
 
-  <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
-    <span class="text-muted">
-      Pendientes totales: <span class="badge bg-<?= $cantidad? 'warning text-dark':'success' ?>"><?= $cantidad ?></span>
-    </span>
-    <span class="text-muted">
-      Seleccionadas: <strong id="countSelected">0</strong>
-    </span>
-    <span class="text-muted">
-      Total seleccionado: <strong>RD$ <span id="totalSelected">0.00</span></strong>
-    </span>
-  </div>
-
-  <?php if ($pendientes): ?>
-    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2">
-      <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
-        <div class="col">
-          <div class="form-check">
-            <input
-              class="form-check-input due-option"
-              type="checkbox"
-              name="selected_dues[]"
-              id="due<?= $i ?>"
-              value="<?= e($venc) ?>"
-              data-label="<?= e($label) ?>"
-              checked
-            >
-            <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
-          </div>
+        <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+          <span class="text-muted">
+            Pendientes totales: <span class="badge bg-<?= $cantidad? 'warning text-dark':'success' ?>"><?= $cantidad ?></span>
+          </span>
+          <span class="text-muted">
+            Seleccionadas: <strong id="countSelected">0</strong>
+          </span>
+          <span class="text-muted">
+            Total seleccionado: <strong>RD$ <span id="totalSelected">0.00</span></strong>
+          </span>
         </div>
-      <?php endforeach; ?>
-    </div>
-  <?php else: ?>
-    <div class="alert alert-success mb-0">
-      No hay cuotas pendientes. Próximo vencimiento:
-      <strong><?= e(fecha_larga_es(proximo_quinto())) ?></strong>.
-    </div>
-  <?php endif; ?>
 
-  <!-- hidden que se envía en el POST (último mes seleccionado) -->
-  <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="">
+        <?php if ($pendientes): ?>
+          <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2">
+            <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
+              <div class="col">
+                <div class="form-check">
+                  <input
+                    class="form-check-input due-option"
+                    type="checkbox"
+                    name="selected_dues[]"
+                    id="due<?= $i ?>"
+                    value="<?= e($venc) ?>"
+                    data-label="<?= e($label) ?>"
+                    checked
+                  >
+                  <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="alert alert-success mb-0">
+            No hay cuotas pendientes. Próximo vencimiento:
+            <strong><?= e(fecha_larga_es(proximo_quinto())) ?></strong>.
+          </div>
+        <?php endif; ?>
 
-  <!-- <div class="mt-3 small text-muted">
-    Seleccionadas: <span id="dueSelected">—</span>
-  </div> -->
-</div></div>
-
+        <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="">
+      </div></div>
 
       <div class="d-flex gap-2 mt-3">
-        <button class="btn btn-primary"><?=$editing?'Crear recibo':'Guardar'?></button>
+        <button class="btn btn-primary"><?= $editing?'Crear recibo':'Guardar' ?></button>
         <a class="btn btn-outline-secondary" href="?">Cancelar</a>
       </div>
 
