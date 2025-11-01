@@ -393,7 +393,7 @@ if ($action==='pagar') {
   $ok_pago = $_SESSION['ok_pago'] ?? null;
   $_SESSION['errors'] = $_SESSION['ok_pago'] = null;
 
-  // $BASE_DUE   = '2025-10-05';
+  $BASE_DUE   = BASE_DUE;
   $pendientes = cuotas_pendientes($BASE_DUE, $data['fecha_pagada'] ?: null);
   $cantidad   = count($pendientes);
   ?>
