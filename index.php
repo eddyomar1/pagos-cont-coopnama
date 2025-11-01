@@ -15,6 +15,13 @@ $options = [
 try { $pdo = new PDO($dsn, $dbUser, $dbPass, $options); }
 catch(Throwable $e){ http_response_code(500); exit("DB error: ".htmlspecialchars($e->getMessage())); }
 
+
+// === CONFIGURACIÓN DEL SISTEMA ===
+// fecha desde la que empiezan a contarse las cuotas (siempre día 5)
+define('BASE_DUE', '2025-10-05');
+
+
+
 /*********** 2) Helpers ***********/
 function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 function body($k,$d=''){ return isset($_POST[$k]) ? trim($_POST[$k]) : $d; }
@@ -52,7 +59,7 @@ function anclar_a_quinto($date){
   if ($d < $quinto) $quinto->modify('-1 month');
   return $quinto;
 }
-function cuotas_pendientes($base='2025-10-05', $ultima_pagada=null){
+function cuotas_pendientes($base = BASE_DUE, $ultima_pagada=null){
   $hoy = new DateTime('today');
   $ultimo_venc = new DateTime(date('Y-m-05'));
   if ($hoy < $ultimo_venc) $ultimo_venc->modify('-1 month');
@@ -386,7 +393,7 @@ if ($action==='pagar') {
   $ok_pago = $_SESSION['ok_pago'] ?? null;
   $_SESSION['errors'] = $_SESSION['ok_pago'] = null;
 
-  $BASE_DUE   = '2025-10-05';
+  // $BASE_DUE   = '2025-10-05';
   $pendientes = cuotas_pendientes($BASE_DUE, $data['fecha_pagada'] ?: null);
   $cantidad   = count($pendientes);
   ?>
