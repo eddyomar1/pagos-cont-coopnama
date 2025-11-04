@@ -229,10 +229,10 @@ header_html('Mis pagos');
       <p class="text-muted mb-1">
         Cédula registrada: <strong><?= e(mask_cedula($residente['cedula'])) ?></strong>
       </p>
-      <p class="text-muted small mb-0">
+      <!-- <p class="text-muted small mb-0">
         ¿Cambiaste de cédula? Puedes actualizarla en
         <a href="cambiar_cedula.php">esta página</a>.
-      </p>
+      </p> -->
     </div>
 
     <div class="card">
