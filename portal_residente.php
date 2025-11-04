@@ -22,6 +22,15 @@ function format_cedula($d){
   $d = digits_only($d);
   return strlen($d)===11 ? substr($d,0,3).'-'.substr($d,3,7).'-'.substr($d,10,1) : $d;
 }
+
+/* Mostrar solo últimos 4 dígitos y lo demás en asteriscos */
+function mask_cedula($d){
+  $d = digits_only($d);
+  $len = strlen($d);
+  if ($len <= 4) return $d; // por si viene algo raro
+  return str_repeat('*', $len - 4) . substr($d, -4);
+}
+
 function cedula_valida($digits){
   $d = digits_only($digits); if(strlen($d)!==11) return false;
   $m=[1,2,1,2,1,2,1,2,1,2]; $s=0;
@@ -208,12 +217,16 @@ header_html('Mis pagos');
 <div class="row">
   <div class="col-12">
     <div class="mb-4">
-      <h2 class="fw-bold mb-1">Hola, <?= e($residente['nombres_apellidos']) ?> 👋</h2>
+      <h2 class="fw-bold mb-1">Hola, <?= e($residente['nombres_apellidos']) ?></h2>
       <p class="text-muted mb-0">
         Bienvenido a tu panel de pagos del <strong>RESIDENCIAL COOPNAMA II</strong>.
       </p>
       <p class="text-muted">
-        Cédula registrada: <strong><?= e(format_cedula($residente['cedula'])) ?></strong>
+        Cédula registrada: <strong><?= e(mask_cedula($residente['cedula'])) ?></strong>
+      </p>
+      <p class="text-muted small">
+        ¿Cambiaste de cédula? Puedes actualizarla en
+        <a href="cambiar_cedula.php">esta página</a>.
       </p>
     </div>
   </div>
@@ -235,9 +248,6 @@ header_html('Mis pagos');
             <tr>
               <th>#</th>
               <th>Fecha recibo</th>
-              <!-- <th>Meses pagados</th> -->
-              <th>Monto base</th>
-              <th>Mora</th>
               <th>Total</th>
             </tr>
           </thead>
@@ -246,22 +256,6 @@ header_html('Mis pagos');
             <tr>
               <td><?= (int)$p['id'] ?></td>
               <td><?= e($p['fecha_recibo']) ?></td>
-              <!-- <td> -->
-                <!-- <?php
-                  $meses = json_decode($p['meses_pagados'], true) ?: [];
-                  if ($meses){
-                    $labels = [];
-                    foreach($meses as $ymd){
-                      if (is_ymd($ymd)) $labels[] = e(fecha_larga_es($ymd));
-                    }
-                    echo $labels ? implode('<br>', $labels) : '—';
-                  } else {
-                    echo '—';
-                  }
-                ?> -->
-              <!-- </td> -->
-              <td><?= number_format((float)$p['monto_base'],2,'.',',') ?></td>
-              <td><?= number_format((float)$p['mora'],2,'.',',') ?></td>
               <td><?= number_format((float)$p['total'],2,'.',',') ?></td>
             </tr>
           <?php endforeach; ?>
