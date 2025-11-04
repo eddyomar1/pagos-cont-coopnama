@@ -70,21 +70,25 @@ function header_html($title='Mis pagos'){
 <body>
 <nav class="navbar navbar-expand-lg bg-white shadow-sm">
   <div class="container">
-    <a class="navbar-brand fw-bold" href="portal_residente.php">RESIDENCIAL COOPNAMA II</a>
+    <!-- Cambiado el texto del brand -->
+    <a class="navbar-brand fw-bold" href="portal_residente.php">Bienvenido a tu panel de pagos</a>
     <div class="ms-auto d-flex gap-2">
       <?php if(!empty($residente)): ?>
         <span class="navbar-text me-2 d-none d-sm-inline">
           Sesión de: <strong><?= e($residente['nombres_apellidos']) ?></strong>
         </span>
-        <!-- <a href="?logout=1" class="btn btn-sm btn-outline-danger">No soy esta persona</a> -->
       <?php endif; ?>
     </div>
   </div>
 </nav>
-<main class="container my-4">
+
+<!-- Contenedor centrado y con ancho máximo para móviles -->
+<main class="container my-4 d-flex justify-content-center">
+  <div class="w-100" style="max-width: 900px;">
 <?php
 }
 function footer_html(){ ?>
+  </div>
 </main>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -112,7 +116,7 @@ $error = '';
 $residente = null;
 $pagos = [];
 
-/* Botón "No soy esta persona" */
+/* Botón "No soy esta persona" (por si lo reactivas en el futuro) */
 if (isset($_GET['logout'])) {
   setcookie('cedula_residente','',time()-3600,'/');
   header('Location: portal_residente.php');
@@ -214,55 +218,56 @@ if (!$residente) {
 /* --- Vista: tabla de pagos del residente --- */
 header_html('Mis pagos');
 ?>
-<div class="row">
-  <div class="col-12">
-    <div class="mb-4">
-      <h2 class="fw-bold mb-1">Hola, <?= e($residente['nombres_apellidos']) ?></h2>
-      <p class="text-muted mb-0">
-        Bienvenido a tu panel de pagos del <strong>RESIDENCIAL COOPNAMA II</strong>.
-      </p>
-      <p class="text-muted">
+<div class="row justify-content-center">
+  <div class="col-12 col-md-10">
+    <!-- Cabecera centrada -->
+    <div class="mb-4 text-center">
+      <h2 class="fw-bold mb-2">Hola, <?= e($residente['nombres_apellidos']) ?></h2>
+
+      <!-- Eliminado el párrafo de "Bienvenido a tu panel..." que se repetía -->
+
+      <p class="text-muted mb-1">
         Cédula registrada: <strong><?= e(mask_cedula($residente['cedula'])) ?></strong>
       </p>
-      <p class="text-muted small">
+      <p class="text-muted small mb-0">
         ¿Cambiaste de cédula? Puedes actualizarla en
         <a href="cambiar_cedula.php">esta página</a>.
       </p>
     </div>
-  </div>
-</div>
 
-<div class="card">
-  <div class="card-body">
-    <h5 class="mb-3">Pagos registrados a tu nombre</h5>
+    <div class="card">
+      <div class="card-body">
+        <h5 class="mb-3 text-center">Pagos registrados a tu nombre</h5>
 
-    <?php if(!$pagos): ?>
-      <div class="alert alert-info mb-0">
-        Aún no tenemos pagos registrados para tu usuario.
-        Si crees que esto es un error, contacta a la administración.
+        <?php if(!$pagos): ?>
+          <div class="alert alert-info mb-0 text-center">
+            Aún no tenemos pagos registrados para tu usuario.
+            Si crees que esto es un error, contacta a la administración.
+          </div>
+        <?php else: ?>
+          <div class="table-responsive">
+            <table id="tablaPagos" class="table table-striped table-bordered align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Fecha recibo</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+              <?php foreach($pagos as $p): ?>
+                <tr>
+                  <td><?= (int)$p['id'] ?></td>
+                  <td><?= e($p['fecha_recibo']) ?></td>
+                  <td><?= number_format((float)$p['total'],2,'.',',') ?></td>
+                </tr>
+              <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        <?php endif; ?>
       </div>
-    <?php else: ?>
-      <div class="table-responsive">
-        <table id="tablaPagos" class="table table-striped table-bordered align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>#</th>
-              <th>Fecha recibo</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-          <?php foreach($pagos as $p): ?>
-            <tr>
-              <td><?= (int)$p['id'] ?></td>
-              <td><?= e($p['fecha_recibo']) ?></td>
-              <td><?= number_format((float)$p['total'],2,'.',',') ?></td>
-            </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    <?php endif; ?>
+    </div>
   </div>
 </div>
 <?php
