@@ -67,7 +67,7 @@ function header_html($title='Mis pagos'){
         <span class="navbar-text me-2 d-none d-sm-inline">
           Sesión de: <strong><?= e($residente['nombres_apellidos']) ?></strong>
         </span>
-        <a href="?logout=1" class="btn btn-sm btn-outline-danger">No soy esta persona</a>
+        <!-- <a href="?logout=1" class="btn btn-sm btn-outline-danger">No soy esta persona</a> -->
       <?php endif; ?>
     </div>
   </div>
@@ -235,7 +235,7 @@ header_html('Mis pagos');
             <tr>
               <th>#</th>
               <th>Fecha recibo</th>
-              <th>Meses pagados</th>
+              <!-- <th>Meses pagados</th> -->
               <th>Monto base</th>
               <th>Mora</th>
               <th>Total</th>
@@ -246,8 +246,8 @@ header_html('Mis pagos');
             <tr>
               <td><?= (int)$p['id'] ?></td>
               <td><?= e($p['fecha_recibo']) ?></td>
-              <td>
-                <?php
+              <!-- <td> -->
+                <!-- <?php
                   $meses = json_decode($p['meses_pagados'], true) ?: [];
                   if ($meses){
                     $labels = [];
@@ -258,8 +258,8 @@ header_html('Mis pagos');
                   } else {
                     echo '—';
                   }
-                ?>
-              </td>
+                ?> -->
+              <!-- </td> -->
               <td><?= number_format((float)$p['monto_base'],2,'.',',') ?></td>
               <td><?= number_format((float)$p['mora'],2,'.',',') ?></td>
               <td><?= number_format((float)$p['total'],2,'.',',') ?></td>
