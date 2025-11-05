@@ -12,16 +12,16 @@ $options = [
   PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
   PDO::ATTR_EMULATE_PREPARES   => false,
 ];
-try { $pdo = new PDO($dsn, $dbUser, $dbPass, $options); }
-catch(Throwable $e){ http_response_code(500); exit("DB error: ".htmlspecialchars($e->getMessage())); }
+try {
+  $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
+} catch (Throwable $e) {
+  http_response_code(500);
+  exit("DB error: ".htmlspecialchars($e->getMessage()));
+}
 
 /*********** 2) Helpers ***********/
 function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 function digits_only($s){ return preg_replace('/\D+/','',$s); }
-function format_cedula($d){
-  $d = digits_only($d);
-  return strlen($d)===11 ? substr($d,0,3).'-'.substr($d,3,7).'-'.substr($d,10,1) : $d;
-}
 function mask_cedula($d){
   $d = digits_only($d);
   $len = strlen($d);
@@ -78,9 +78,19 @@ function footer_html(){ ?>
 /*********** 4) Lógica de cambio de cédula ***********/
 $error   = '';
 $success = '';
-$step    = 1; // 1 = pedir cédula actual, 2 = pedir nueva cédula, 3 = éxito
+$step    = 1; // 1 = pedir cédula actual, 2 = pedir nueva, 3 = éxito
 
-// Si ya tenemos residente guardado en sesión, estamos en el paso 2
+// Cédula actualmente guardada en el dispositivo (cookie)
+$cookieCedDigits = isset($_COOKIE['cedula_residente'])
+  ? digits_only($_COOKIE['cedula_residente'])
+  : '';
+
+if ($cookieCedDigits === '') {
+  // Si no hay cookie, realmente no hay nada que “cambiar” en el dispositivo
+  // (deben ir primero al portal y registrar su cédula)
+}
+
+/* Residente asociado a la cédula que se validó en el paso 1 */
 $residenteSesion = isset($_SESSION['cambio_residente']) ? $_SESSION['cambio_residente'] : null;
 if ($residenteSesion) {
   $step = 2;
@@ -91,23 +101,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $accion = $_POST['accion'] ?? '';
 
   if ($accion === 'verificar_actual') {
-    // Paso 1: verificar cédula actual y asociar nombre
+    // Paso 1: verificar que la cédula introducida coincide con la guardada en el dispositivo
+
     $cedula_actual_in = trim($_POST['cedula_actual'] ?? '');
     $cedula_actual    = digits_only($cedula_actual_in);
 
-    if (!cedula_valida($cedula_actual)) {
+    if ($cookieCedDigits === '') {
+      $error = "En este dispositivo aún no hay una cédula guardada. Primero debes entrar al portal de pagos y registrar tu cédula.";
+      $step  = 1;
+
+    } elseif (!cedula_valida($cedula_actual)) {
       $error = "La cédula actual no es válida.";
       $step  = 1;
+
+    } elseif ($cedula_actual !== $cookieCedDigits) {
+      $error = "La cédula que escribiste no coincide con la cédula guardada en este dispositivo.";
+      $step  = 1;
+
     } else {
+      // Coincide con la cookie, ahora usamos la BDD solo para obtener el nombre
       $st = $pdo->prepare("SELECT id, nombres_apellidos, cedula FROM residentes WHERE cedula = ? LIMIT 1");
       $st->execute([$cedula_actual]);
       $row = $st->fetch();
 
       if (!$row) {
-        $error = "No encontramos un residente con esa cédula.";
+        $error = "No encontramos un residente con esa cédula en el sistema. Contacta a la administración.";
         $step  = 1;
       } else {
-        // Guardamos en sesión para el segundo paso
         $_SESSION['cambio_residente'] = $row;
         $residenteSesion = $row;
         $step = 2;
@@ -115,15 +135,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
   } elseif ($accion === 'guardar_nueva') {
-    // Paso 2: guardar nueva cédula (sin comprobar duplicados en BD)
+    // Paso 2: guardar la nueva cédula solo en la cookie (almacenamiento local)
+
     if (!$residenteSesion) {
       $error = "La sesión del cambio de cédula ha caducado. Vuelve a empezar.";
       $step  = 1;
+
     } else {
       $cedula_nueva_in  = trim($_POST['cedula_nueva'] ?? '');
       $cedula_conf_in   = trim($_POST['cedula_confirm'] ?? '');
 
-      // Siempre trabajamos con solo dígitos
       $cedula_nueva     = digits_only($cedula_nueva_in);
       $cedula_conf      = digits_only($cedula_conf_in);
       $cedula_actual_bd = digits_only($residenteSesion['cedula']);
@@ -145,30 +166,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $step  = 2;
 
       } else {
-        // Aquí SOLO actualizamos, sin comprobar si otro la tiene
-        $upd = $pdo->prepare("UPDATE residentes SET cedula = ? WHERE id = ?");
-        $upd->execute([$cedula_nueva, $residenteSesion['id']]);
+        // Usamos la BDD SOLO para verificar que la nueva cédula existe y obtener el nombre
+        $st = $pdo->prepare("SELECT id, nombres_apellidos, cedula FROM residentes WHERE cedula = ? LIMIT 1");
+        $st->execute([$cedula_nueva]);
+        $nuevo = $st->fetch();
 
-        // Actualizar cookie si coincide con la cédula antigua
-        if (isset($_COOKIE['cedula_residente'])) {
-          $cookieCed = digits_only($_COOKIE['cedula_residente']);
-          if ($cookieCed === $cedula_actual_bd) {
-            setcookie('cedula_residente', $cedula_nueva, [
-              'expires'  => time() + 60*60*24*365,
-              'path'     => '/',
-              'secure'   => !empty($_SERVER['HTTPS']),
-              'httponly' => true,
-              'samesite' => 'Lax',
-            ]);
-          }
+        if (!$nuevo) {
+          $error = "No encontramos un residente con esa nueva cédula. Verifica que esté bien escrita.";
+          $step  = 2;
+
+        } else {
+          // Actualizamos SOLO la cookie (almacenamiento local del dispositivo)
+          setcookie('cedula_residente', $nuevo['cedula'], [
+            'expires'  => time() + 60*60*24*365,
+            'path'     => '/',
+            'secure'   => !empty($_SERVER['HTTPS']),
+            'httponly' => true,
+            'samesite' => 'Lax',
+          ]);
+
+          $mask_old = mask_cedula($cedula_actual_bd);
+          $mask_new = mask_cedula($cedula_nueva);
+
+          $success  = "La cédula guardada en este dispositivo se actualizó de {$mask_old} a {$mask_new}.";
+          $success .= " Ahora el dispositivo recordará la nueva cédula para entrar al portal.";
+
+          unset($_SESSION['cambio_residente']);
+          $residenteSesion = null;
+          $step = 3;
         }
-
-        $mask_old = mask_cedula($cedula_actual_bd);
-        $mask_new = mask_cedula($cedula_nueva);
-        $success  = "La cédula se actualizó correctamente de {$mask_old} a {$mask_new}.";
-        unset($_SESSION['cambio_residente']);
-        $residenteSesion = null;
-        $step = 3;
       }
     }
   }
@@ -182,17 +208,18 @@ if ($error): ?>
 <?php endif; ?>
 
 <?php if ($step === 1): ?>
-  <!-- Paso 1: Verificar cédula actual -->
+  <!-- Paso 1: Verificar cédula actual contra lo guardado en el dispositivo -->
   <div class="card">
     <div class="card-body">
       <h4 class="mb-3 text-center">Verificar cédula actual</h4>
       <p class="text-muted">
-        Para cambiar tu cédula, primero necesitamos confirmar la cédula que está registrada actualmente en el sistema.
+        Esta opción sirve para cambiar la cédula que este dispositivo recuerda automáticamente.
+        Primero confirma cuál es la cédula que está guardada ahora.
       </p>
       <form method="post" autocomplete="off">
         <input type="hidden" name="accion" value="verificar_actual">
         <div class="mb-3">
-          <label class="form-label">Cédula actual</label>
+          <label class="form-label">Cédula actual (guardada en este dispositivo)</label>
           <input type="text"
                  name="cedula_actual"
                  class="form-control"
@@ -207,19 +234,19 @@ if ($error): ?>
   </div>
 
 <?php elseif ($step === 2 && $residenteSesion): ?>
-  <!-- Paso 2: Introducir nueva cédula -->
+  <!-- Paso 2: Introducir nueva cédula (será la que se guarde en la cookie) -->
   <div class="card">
     <div class="card-body">
       <h4 class="mb-3 text-center">Ingresar nueva cédula</h4>
       <p class="text-muted">
         Residente encontrado:
         <strong><?= e($residenteSesion['nombres_apellidos']) ?></strong><br>
-        Cédula actual: <strong><?= e(mask_cedula($residenteSesion['cedula'])) ?></strong>
+        Cédula actual guardada: <strong><?= e(mask_cedula($residenteSesion['cedula'])) ?></strong>
       </p>
       <form method="post" autocomplete="off">
         <input type="hidden" name="accion" value="guardar_nueva">
         <div class="mb-3">
-          <label class="form-label">Nueva cédula</label>
+          <label class="form-label">Nueva cédula (que quieres que el dispositivo recuerde)</label>
           <input type="text"
                  name="cedula_nueva"
                  class="form-control"
@@ -245,10 +272,10 @@ if ($error): ?>
   <!-- Paso 3: Éxito -->
   <div class="card">
     <div class="card-body text-center">
-      <h4 class="mb-3">Cédula actualizada</h4>
+      <h4 class="mb-3">Cédula actualizada en este dispositivo</h4>
       <div class="alert alert-success"><?= e($success) ?></div>
       <p class="text-muted">
-        Ya puedes volver a tu panel de pagos.
+        Ya puedes volver a tu panel de pagos. A partir de ahora, este dispositivo usará la nueva cédula.
       </p>
       <a href="portal_residente.php" class="btn btn-primary">Ir al portal de pagos</a>
     </div>
