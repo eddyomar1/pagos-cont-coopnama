@@ -582,7 +582,6 @@ if ($action==='new' || $action==='pagar') {
       ?>
       <?php if ($deuda_extra > 0): ?>
         <div class="card mb-3"><div class="card-body">
-          <h6 class="mb-2">Deuda anterior (sin detalle por meses)</h6>
           <p class="mb-2">
             Deuda pendiente:
             <strong>RD$ <?= number_format($deuda_extra,2,'.',',') ?></strong>
