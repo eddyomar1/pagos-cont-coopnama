@@ -1,6 +1,13 @@
 <?php
 session_start();
 
+/*************************************************
+ * cambiar_cedula.php
+ * Flujo en 2 pasos:
+ *  1) Verificar cédula actual
+ *  2) Ingresar y guardar nueva cédula
+ *************************************************/
+
 /*********** 1) Conexión ***********/
 $dbHost = 'localhost';
 $dbName = 'u138076177_pw';
@@ -52,6 +59,7 @@ function header_html($title='Cambiar cédula'){
 <style>
  body{background:#f6f7fb}
  .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
+ .maxw-560{max-width:560px}
 </style>
 </head>
 <body>
@@ -78,17 +86,15 @@ $error   = '';
 $success = '';
 $step    = 1; // 1 = pedir cédula actual, 2 = pedir nueva cédula, 3 = éxito
 
-$residenteSesion = isset($_SESSION['cambio_residente']) ? $_SESSION['cambio_residente'] : null;
-if ($residenteSesion) {
-  $step = 2;
-}
+// Si ya hay residente cargado en sesión (tras paso 1), vamos directo a paso 2
+$residenteSesion = $_SESSION['cambio_residente'] ?? null;
+if ($residenteSesion) $step = 2;
 
-/* Gestión de formularios */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $accion = $_POST['accion'] ?? '';
 
+  /* === Paso 1: Verificar cédula actual === */
   if ($accion === 'verificar_actual') {
-    // Paso 1: verificar cédula actual
     $cedula_actual_in = trim($_POST['cedula_actual'] ?? '');
     $cedula_actual    = digits_only($cedula_actual_in);
 
@@ -104,52 +110,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "No encontramos un residente con esa cédula.";
         $step  = 1;
       } else {
-        // Guardamos en sesión para el segundo paso
-        $_SESSION['cambio_residente'] = $row;
+        $_SESSION['cambio_residente'] = $row; // persistimos para paso 2
         $residenteSesion = $row;
         $step = 2;
       }
     }
+  }
 
-  } elseif ($accion === 'guardar_nueva') {
-    // Paso 2: guardar nueva cédula
+  /* === Paso 2: Guardar nueva cédula === */
+  if ($accion === 'guardar_nueva') {
     if (!$residenteSesion) {
       $error = "La sesión del cambio de cédula ha caducado. Vuelve a empezar.";
       $step  = 1;
     } else {
       $cedula_nueva_in  = trim($_POST['cedula_nueva'] ?? '');
       $cedula_conf_in   = trim($_POST['cedula_confirm'] ?? '');
+
       $cedula_nueva     = digits_only($cedula_nueva_in);
       $cedula_conf      = digits_only($cedula_conf_in);
+      $cedula_actual_bd = digits_only($residenteSesion['cedula']);
 
       if ($cedula_nueva === '' || $cedula_conf === '') {
         $error = "Debes escribir y confirmar la nueva cédula.";
         $step  = 2;
+
       } elseif ($cedula_nueva !== $cedula_conf) {
         $error = "La nueva cédula y su confirmación no coinciden.";
         $step  = 2;
+
       } elseif (!cedula_valida($cedula_nueva)) {
         $error = "La nueva cédula no es válida.";
         $step  = 2;
-      } elseif ($cedula_nueva === $residenteSesion['cedula']) {
+
+      } elseif ($cedula_nueva === $cedula_actual_bd) {
+        // Nueva cédula no puede ser la misma que la actual
         $error = "La nueva cédula no puede ser igual a la cédula actual.";
         $step  = 2;
+
       } else {
-        // Verificar que no esté ya en uso por otro residente
+        // ¿Existe OTRO residente con esa cédula?
         $st = $pdo->prepare("SELECT id FROM residentes WHERE cedula = ? AND id <> ? LIMIT 1");
         $st->execute([$cedula_nueva, $residenteSesion['id']]);
-        if ($st->fetch()) {
+        $otro = $st->fetch();
+
+        if ($otro) {
           $error = "Ya existe un residente registrado con esa nueva cédula.";
           $step  = 2;
         } else {
-          // Actualizar cédula en la base de datos
+          // Actualizar cédula
           $upd = $pdo->prepare("UPDATE residentes SET cedula = ? WHERE id = ?");
           $upd->execute([$cedula_nueva, $residenteSesion['id']]);
 
-          // Actualizar cookie si coincide con la cédula antigua
+          // Actualizar cookie si coincidía con la antigua
           if (isset($_COOKIE['cedula_residente'])) {
             $cookieCed = digits_only($_COOKIE['cedula_residente']);
-            if ($cookieCed === digits_only($residenteSesion['cedula'])) {
+            if ($cookieCed === $cedula_actual_bd) {
               setcookie('cedula_residente', $cedula_nueva, [
                 'expires'  => time() + 60*60*24*365,
                 'path'     => '/',
@@ -160,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
           }
 
-          $mask_old = mask_cedula($residenteSesion['cedula']);
+          $mask_old = mask_cedula($cedula_actual_bd);
           $mask_new = mask_cedula($cedula_nueva);
           $success  = "La cédula se actualizó correctamente de {$mask_old} a {$mask_new}.";
           unset($_SESSION['cambio_residente']);
@@ -182,12 +197,12 @@ if ($error): ?>
 <?php if ($step === 1): ?>
   <!-- Paso 1: Verificar cédula actual -->
   <div class="row justify-content-center">
-    <div class="col-md-6">
-      <div class="card">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card maxw-560 mx-auto">
         <div class="card-body">
           <h4 class="mb-3 text-center">Verificar cédula actual</h4>
           <p class="text-muted">
-            Para cambiar tu cédula, primero necesitamos confirmar la cédula que está registrada actualmente en el sistema.
+            Para cambiar tu cédula, primero confirma la cédula que está registrada actualmente.
           </p>
           <form method="post" autocomplete="off">
             <input type="hidden" name="accion" value="verificar_actual">
@@ -211,8 +226,8 @@ if ($error): ?>
 <?php elseif ($step === 2 && $residenteSesion): ?>
   <!-- Paso 2: Introducir nueva cédula -->
   <div class="row justify-content-center">
-    <div class="col-md-6">
-      <div class="card">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card maxw-560 mx-auto">
         <div class="card-body">
           <h4 class="mb-3 text-center">Ingresar nueva cédula</h4>
           <p class="text-muted">
@@ -250,14 +265,11 @@ if ($error): ?>
 <?php elseif ($step === 3 && $success): ?>
   <!-- Paso 3: Éxito -->
   <div class="row justify-content-center">
-    <div class="col-md-6">
-      <div class="card">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card maxw-560 mx-auto">
         <div class="card-body text-center">
           <h4 class="mb-3">Cédula actualizada</h4>
           <div class="alert alert-success"><?= e($success) ?></div>
-          <p class="text-muted">
-            Ya puedes volver a tu panel de pagos.
-          </p>
           <a href="portal_residente.php" class="btn btn-primary">Ir al portal de pagos</a>
         </div>
       </div>
@@ -265,5 +277,4 @@ if ($error): ?>
   </div>
 <?php endif; ?>
 
-<?php
-footer_html();
+<?php footer_html(); ?>
