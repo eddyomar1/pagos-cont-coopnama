@@ -219,7 +219,7 @@ if ($error): ?>
       <form method="post" autocomplete="off">
         <input type="hidden" name="accion" value="verificar_actual">
         <div class="mb-3">
-          <label class="form-label">Cédula actual (guardada en este dispositivo)</label>
+          <label class="form-label">Cédula actual</label>
           <input type="text"
                  name="cedula_actual"
                  class="form-control"
