@@ -588,7 +588,7 @@ if ($action==='new' || $action==='pagar') {
           </p>
           <div class="row g-3 align-items-end">
             <div class="col-md-4">
-              <label class="form-label">Monto a abonar ahora</label>
+              <label class="form-label">deuda atrasada</label>
               <input type="text" class="form-control"
                      name="abono_deuda_extra" id="abono_deuda_extra"
                      placeholder="0.00" value="">
@@ -602,6 +602,14 @@ if ($action==='new' || $action==='pagar') {
           </div>
           <input type="hidden" name="deuda_extra_actual" id="deuda_extra_actual"
                  value="<?= $deuda_extra_fmt ?>">
+
+            <div class="col-md-4">
+              <label class="form-label">texbox extra</label>
+              <input type="text" class="form-control"
+                     id="deuda_restante"
+                     value="<?= $deuda_extra_fmt ?>" disabled>
+            </div>
+
         </div></div>
       <?php else: ?>
         <input type="hidden" name="deuda_extra_actual" id="deuda_extra_actual" value="0.00">
