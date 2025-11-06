@@ -309,6 +309,9 @@ function header_html($title='Residentes'){ ?>
 <nav class="navbar navbar-expand-lg bg-white shadow-sm">
   <div class="container">
     <a class="navbar-brand fw-bold" href="?">RESIDENCIAL COOPNAMA II</a>
+        <div class="ms-auto btn-group">
+      <a href="pagos.php" class="btn btn-primary btn-sm">Pagos</a>
+    </div>
   </div>
 </nav>
 <main class="container my-4">
