@@ -29,7 +29,7 @@ try {
 
 /*********** 2) Constantes y helpers ***********/
 // Fecha base a partir de la cual se cuentan las cuotas (día 5)
-const BASE_DUE      = '2025-10-05';
+const BASE_DUE      = '2025-10-25';
 const CUOTA_MONTO   = 1000.00; // RD$ por mes
 
 function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
