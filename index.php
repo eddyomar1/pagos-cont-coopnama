@@ -181,15 +181,21 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $cedula_digits     = $residente['cedula'];
   $codigo            = $residente['codigo'];
   $telefono          = $residente['telefono'];
-  $deuda_extra_db    = (float)$residente['deuda_extra'];
 
   $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
   $mora              = toDecimal(body('mora')) ?? 0;
   $no_recurrente     = isset($_POST['no_recurrente']) ? 1 : 0;
 
-  // Deuda extra
+  // Deuda extra: si el campo editable viene en el POST lo usamos;
+  // si no, tomamos el valor oculto (de la BD)
+  $deuda_restante_post = body('deuda_restante', '');
+  if ($deuda_restante_post !== '') {
+    $deuda_extra_actual = toDecimal($deuda_restante_post) ?? 0;
+  } else {
+    $deuda_extra_actual = toDecimal(body('deuda_extra_actual')) ?? 0;
+  }
+
   $abono_deuda_extra  = toDecimal(body('abono_deuda_extra')) ?? 0;
-  $deuda_extra_actual = toDecimal(body('deuda_extra_actual')) ?? $deuda_extra_db;
 
   // Cuotas seleccionadas (checkboxes)
   $selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues'])
@@ -201,7 +207,6 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     sort($selected_dues);
     $fecha_x_pagar = end($selected_dues);
   } else {
-    // si no hay meses seleccionados, usamos la que venga o null
     $fecha_x_pagar = toDateOrNull(body('fecha_x_pagar')) ?: null;
   }
 
@@ -221,7 +226,6 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   if(!required($nombres_apellidos)) $errors[]="Nombres y Apellidos es obligatorio.";
   if(!required($cedula_digits))     $errors[]="Cédula es obligatoria.";
   if($cedula_digits && !cedula_valida($cedula_digits)) $errors[]="Cédula no válida.";
-
   if(!$fecha_pagada) $errors[]='Debe indicar la fecha pagada.';
 
   if($errors){
@@ -332,23 +336,27 @@ $(function(){
     $('#lenSelect').val(dt.page.len());
   }
 
+  // Botón para mostrar / editar la deuda atrasada
+  $(document).on('click', '#btnToggleDeuda', function(){
+    $('#cardDeudaExtra').removeClass('d-none');
+    $('#deuda_restante').prop('disabled', false);
+    if (!$('#deuda_restante').val()) {
+      $('#deuda_restante').val('0.00');
+    }
+    $(this).prop('disabled', true);
+  });
+
   // === CUOTAS + DEUDA EXTRA ===
   function recalcDueSelection(){
     var $boxes = $('.due-option:checked');
-    var dates  = $boxes.map(function(){ return this.value; }).get();
-    dates.sort(); // YYYY-MM-DD
-
-    var count  = dates.length;
-    var latest = count ? dates[dates.length-1] : '';
-
-    // Hidden para backend (último mes seleccionado)
-    $('#fecha_x_pagar').val(latest);
-
-    // Contadores
-    $('#countSelected').text(count);
-
-    // Total cuotas = 1000 * #meses
+    var count  = $boxes.length;
     var totalCuotas = count * 1000;
+
+    // Deuda actual (tomamos la visible; si está vacía, usamos el hidden)
+    var deudaStr = $('#deuda_restante').val() || $('#deuda_extra_actual').val() || '0';
+    deudaStr = deudaStr.replace(',', '.');
+    var deudaActual = parseFloat(deudaStr);
+    if (isNaN(deudaActual)) deudaActual = 0;
 
     // Abono a deuda extra
     var abonoStr = $('#abono_deuda_extra').val() || '0';
@@ -359,10 +367,13 @@ $(function(){
     // Total base = cuotas + abono
     var totalBase = totalCuotas + abono;
 
-    // Reflejar en input (aunque esté deshabilitado lo mostramos)
-    $('input[name="monto_a_pagar"]').val(totalBase.toFixed(2));
+    // Reflejar total base en input "monto_a_pagar"
+    if ($('input[name="monto_a_pagar"]').length){
+      $('input[name="monto_a_pagar"]').val(totalBase.toFixed(2));
+    }
 
-    // Total seleccionado (texto si lo usas)
+    // Contadores para la card de cuotas
+    $('#countSelected').text(count);
     $('#totalSelected').text(
       totalBase.toLocaleString('es-DO', {
         minimumFractionDigits:2,
@@ -370,20 +381,16 @@ $(function(){
       })
     );
 
-    // Deuda restante estimada
-    var deudaActualStr = $('#deuda_extra_actual').val() || '0';
-    deudaActualStr = deudaActualStr.replace(',', '.');
-    var deudaActual = parseFloat(deudaActualStr);
-    if (isNaN(deudaActual)) deudaActual = 0;
-
-    var restante = Math.max(0, deudaActual - abono);
-    if ($('#deuda_restante').length){
-      $('#deuda_restante').val(restante.toFixed(2));
+    // Deuda estimada después de este pago (solo visual)
+    var despues = Math.max(0, deudaActual - abono);
+    if ($('#deuda_despues').length){
+      $('#deuda_despues').val(despues.toFixed(2));
     }
   }
 
   $(document).on('change', '.due-option', recalcDueSelection);
   $(document).on('input', '#abono_deuda_extra', recalcDueSelection);
+  $(document).on('input', '#deuda_restante', recalcDueSelection);
   recalcDueSelection(); // inicial
 
   $(document).on('click', '.btn-delete', function(e){
@@ -506,6 +513,10 @@ if ($action==='new' || $action==='pagar') {
   $pendientes = cuotas_pendientes(BASE_DUE, $data['fecha_pagada'] ?: null);
   $cantidad   = count($pendientes);
 
+  // Deuda extra actual (desde BD)
+  $deuda_extra_db   = isset($data['deuda_extra']) ? (float)$data['deuda_extra'] : 0.0;
+  $deuda_extra_fmt  = number_format($deuda_extra_db,2,'.','');
+  $mostrar_card_deuda = $deuda_extra_db > 0;
   ?>
   <div class="row justify-content-center"><div class="col-lg-10">
 
@@ -524,7 +535,14 @@ if ($action==='new' || $action==='pagar') {
 
       <!-- CARD DATOS -->
       <div class="card mb-3"><div class="card-body">
-        <h5 class="card-title mb-3">Pagar / Crear recibo</h5>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="card-title mb-0">Pagar / Crear recibo</h5>
+          <?php if ($editing): ?>
+            <button type="button" id="btnToggleDeuda" class="btn btn-outline-secondary btn-sm">
+              Añadir / editar deuda atrasada
+            </button>
+          <?php endif; ?>
+        </div>
 
         <div class="row g-3">
           <div class="col-md-3">
@@ -575,38 +593,40 @@ if ($action==='new' || $action==='pagar') {
         </div>
       </div></div>
 
-      <!-- CARD DEUDA EXTRA -->
-      <?php
-        $deuda_extra = isset($data['deuda_extra']) ? (float)$data['deuda_extra'] : 0.0;
-        $deuda_extra_fmt = number_format($deuda_extra,2,'.','');
-      ?>
-      <?php if ($deuda_extra > 0): ?>
-        <div class="card mb-3"><div class="card-body">
-          <p class="mb-2">
-            Deuda pendiente:
-            <strong>RD$ <?= number_format($deuda_extra,2,'.',',') ?></strong>
+      <!-- CARD DEUDA EXTRA (se muestra u oculta, y se desbloquea con el botón) -->
+      <div class="card mb-3 <?= $mostrar_card_deuda ? '' : 'd-none' ?>" id="cardDeudaExtra">
+        <div class="card-body">
+          <h6 class="mb-2">Deuda anterior (sin detalle por meses)</h6>
+          <p class="text-muted mb-3">
+            Deuda registrada actualmente: <strong>RD$ <?= number_format($deuda_extra_db,2,'.',',') ?></strong>
           </p>
+
           <div class="row g-3 align-items-end">
             <div class="col-md-4">
-              <label class="form-label">deuda atrasada</label>
+              <label class="form-label">Deuda restante (estimada)</label>
+              <input type="text" class="form-control"
+                     name="deuda_restante" id="deuda_restante"
+                     value="<?= $deuda_extra_fmt ?>" <?= $mostrar_card_deuda ? 'disabled' : 'disabled' ?>>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Monto a abonar ahora</label>
               <input type="text" class="form-control"
                      name="abono_deuda_extra" id="abono_deuda_extra"
                      placeholder="0.00" value="">
             </div>
             <div class="col-md-4">
-              <label class="form-label">Deuda restante (estimada)</label>
+              <label class="form-label">Deuda estimada después de este pago</label>
               <input type="text" class="form-control"
-                     id="deuda_restante"
+                     id="deuda_despues"
                      value="<?= $deuda_extra_fmt ?>" disabled>
             </div>
           </div>
+
+          <!-- valor original de la deuda (por si el campo está deshabilitado y no viene en POST) -->
           <input type="hidden" name="deuda_extra_actual" id="deuda_extra_actual"
                  value="<?= $deuda_extra_fmt ?>">
-                 
-        </div></div>
-      <?php else: ?>
-        <input type="hidden" name="deuda_extra_actual" id="deuda_extra_actual" value="0.00">
-      <?php endif; ?>
+        </div>
+      </div>
 
       <!-- CARD CUOTAS PENDIENTES -->
       <div class="card mb-3"><div class="card-body">
