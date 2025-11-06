@@ -596,7 +596,6 @@ if ($action==='new' || $action==='pagar') {
       <!-- CARD DEUDA EXTRA (se muestra u oculta, y se desbloquea con el botón) -->
       <div class="card mb-3 <?= $mostrar_card_deuda ? '' : 'd-none' ?>" id="cardDeudaExtra">
         <div class="card-body">
-          <h6 class="mb-2">Deuda anterior (sin detalle por meses)</h6>
           <p class="text-muted mb-3">
             Deuda registrada actualmente: <strong>RD$ <?= number_format($deuda_extra_db,2,'.',',') ?></strong>
           </p>
