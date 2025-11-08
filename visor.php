@@ -63,11 +63,19 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $errors=[];
   if(!required($edif_apto))         $errors[]="Edif/Apto es obligatorio.";
   if(!required($nombres_apellidos)) $errors[]="Nombres y Apellidos es obligatorio.";
-  if(!required($cedula_in))         $errors[]="Cédula es obligatoria.";
-  $cedula_digits = digits_only($cedula_in);
-  if($cedula_in && !cedula_valida($cedula_digits)) $errors[]="Cédula no válida.";
 
-  if($errors){ $_SESSION['errors']=$errors; $_SESSION['old']=$_POST; header('Location:?action=new'); exit; }
+  // Cédula opcional: solo se valida si viene algo
+  $cedula_digits = digits_only($cedula_in);
+  if($cedula_digits !== '' && !cedula_valida($cedula_digits)) {
+    $errors[] = "Cédula no válida.";
+  }
+  $cedula_db = ($cedula_digits !== '') ? $cedula_digits : null;
+
+  if($errors){
+    $_SESSION['errors']=$errors;
+    $_SESSION['old']=$_POST;
+    header('Location:?action=new'); exit;
+  }
 
   try{
     $stmt=$pdo->prepare(
@@ -76,7 +84,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
        VALUES (?,?,?,?,?,?,?,?,?,?,?)"
     );
     $stmt->execute([
-      $edif_apto,$nombres_apellidos,$cedula_digits,$codigo ?: null,$telefono ?: null,
+      $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
       $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente
     ]);
     header('Location:?action=full&saved=1'); exit;
@@ -105,11 +113,19 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   if($id<=0)                         $errors[]="ID inválido.";
   if(!required($edif_apto))          $errors[]="Edif/Apto es obligatorio.";
   if(!required($nombres_apellidos))  $errors[]="Nombres y Apellidos es obligatorio.";
-  if(!required($cedula_in))          $errors[]="Cédula es obligatoria.";
-  $cedula_digits = digits_only($cedula_in);
-  if($cedula_in && !cedula_valida($cedula_digits)) $errors[]="Cédula no válida.";
 
-  if($errors){ $_SESSION['errors']=$errors; $_SESSION['old']=$_POST; header('Location:?action=edit&id='.$id); exit; }
+  // Cédula opcional
+  $cedula_digits = digits_only($cedula_in);
+  if($cedula_digits !== '' && !cedula_valida($cedula_digits)) {
+    $errors[] = "Cédula no válida.";
+  }
+  $cedula_db = ($cedula_digits !== '') ? $cedula_digits : null;
+
+  if($errors){
+    $_SESSION['errors']=$errors;
+    $_SESSION['old']=$_POST;
+    header('Location:?action=edit&id='.$id); exit;
+  }
 
   try{
     $stmt=$pdo->prepare(
@@ -119,7 +135,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
        WHERE id=?"
     );
     $stmt->execute([
-      $edif_apto,$nombres_apellidos,$cedula_digits,$codigo ?: null,$telefono ?: null,
+      $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
       $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente,$id
     ]);
     header('Location:?action=full&updated=1'); exit;
@@ -205,7 +221,6 @@ if ($action === 'full') {
   if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro eliminado.</div>';
   ?>
   <div class="card"><div class="card-body">
-    <!--<h5 class="mb-3">Listado (completo)</h5>-->
     <div class="table-responsive">
       <table id="tabla" class="table table-striped table-bordered align-middle">
         <thead class="table-light"><tr>
@@ -245,10 +260,10 @@ if ($action==='new' || $action==='edit') {
   $data=[
     'id'=>null,
     'edif_apto'=>'',
-    'nombres_apellidos'=>'',   // <- corregido (=>)
-    'cedula'=>'',              // <- corregido (=>)
-    'codigo'=>'',              // <- corregido (=>)
-    'telefono'=>'',            // <- corregido (=>)
+    'nombres_apellidos'=>'',
+    'cedula'=>'',
+    'codigo'=>'',
+    'telefono'=>'',
     'fecha_x_pagar'=>'',
     'fecha_pagada'=>'',
     'mora'=>'',
@@ -290,8 +305,8 @@ if ($action==='new' || $action==='edit') {
           <input type="text" name="nombres_apellidos" class="form-control" maxlength="255" value="<?=e($data['nombres_apellidos'])?>" required>
         </div>
         <div class="col-md-2">
-          <label class="form-label">Cédula *</label>
-          <input type="text" name="cedula" class="form-control" maxlength="13" placeholder="001-1234567-8" value="<?=e(format_cedula($data['cedula']))?>" >
+          <label class="form-label">Cédula</label>
+          <input type="text" name="cedula" class="form-control" maxlength="13" placeholder="001-1234567-8" value="<?=e(format_cedula($data['cedula']))?>">
         </div>
         <div class="col-md-2">
           <label class="form-label">Código</label>
