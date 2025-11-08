@@ -291,7 +291,7 @@ if ($action==='new' || $action==='edit') {
         </div>
         <div class="col-md-2">
           <label class="form-label">Cédula *</label>
-          <input type="text" name="cedula" class="form-control" maxlength="13" placeholder="001-1234567-8" value="<?=e(format_cedula($data['cedula']))?>" required>
+          <input type="text" name="cedula" class="form-control" maxlength="13" placeholder="001-1234567-8" value="<?=e(format_cedula($data['cedula']))?>" >
         </div>
         <div class="col-md-2">
           <label class="form-label">Código</label>

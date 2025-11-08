@@ -577,7 +577,7 @@ if ($action==='new' || $action==='pagar') {
           </div>
 
           <div class="col-md-3">
-            <label class="form-label">Fecha pagada (ingresada por quien cobra)</label>
+            <label class="form-label">Fecha de pago</label>
             <input type="date" name="fecha_pagada" class="form-control"
                    value="<?=e($data['fecha_pagada'])?>">
           </div>
