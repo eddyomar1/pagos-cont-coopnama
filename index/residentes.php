@@ -81,6 +81,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $mora              = toDecimal(body('mora')) ?? 0;
   $no_recurrente     = isset($_POST['no_recurrente']) ? 1 : 0;
 
+  // Deuda extra: editable si el usuario abre la card
   $deuda_restante_post = body('deuda_restante', '');
   if ($deuda_restante_post !== '') {
     $deuda_extra_actual = toDecimal($deuda_restante_post) ?? 0;
@@ -90,10 +91,12 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
 
   $abono_deuda_extra  = toDecimal(body('abono_deuda_extra')) ?? 0;
 
+  // Cuotas seleccionadas (checkboxes)
   $selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues'])
     ? $_POST['selected_dues'] : [];
   $selected_dues = array_values(array_filter($selected_dues, 'is_ymd'));
 
+  // Fecha x pagar = último mes seleccionado (si hay)
   if ($selected_dues) {
     sort($selected_dues);
     $fecha_x_pagar = end($selected_dues);
@@ -101,6 +104,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     $fecha_x_pagar = toDateOrNull(body('fecha_x_pagar')) ?: null;
   }
 
+  // Monto base = meses x CUOTA_MONTO + abono deuda extra
   $monto_base_cuotas = count($selected_dues) * CUOTA_MONTO;
   $monto_base        = $monto_base_cuotas + $abono_deuda_extra;
 
@@ -125,6 +129,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   try{
     $pdo->beginTransaction();
 
+    // Actualizar residente (estado resumido)
     $stmt=$pdo->prepare(
       "UPDATE residentes SET
         edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
@@ -136,6 +141,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
       $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$nueva_deuda_extra,$no_recurrente,$id
     ]);
 
+    // Registrar pago detallado
     $stmt2 = $pdo->prepare(
       "INSERT INTO pagos_residentes
        (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
@@ -183,6 +189,10 @@ if ($action === 'delete' && isset($_GET['id'])) {
 
 /* 5.1 Listado */
 if ($action === 'index') {
+  // Filtro: por defecto solo con deuda; ?filtro=todos para ver todos
+  $filtro = $_GET['filtro'] ?? 'pendientes';
+  $solo_deudores = ($filtro !== 'todos');
+
   render_header('Residentes','residentes');
   $rows=$pdo->query("SELECT * FROM residentes ORDER BY id DESC")->fetchAll();
 
@@ -195,7 +205,7 @@ if ($action === 'index') {
   <div class="card mb-3">
     <div class="card-body">
       <div class="row g-3 align-items-center">
-        <div class="col-sm-6 d-flex align-items-center gap-2">
+        <div class="col-md-4 d-flex align-items-center gap-2">
           <span>Mostrar</span>
           <select id="lenSelect" class="form-select form-select-sm" style="width:auto;">
             <option value="5">5</option>
@@ -206,9 +216,21 @@ if ($action === 'index') {
           </select>
           <span class="text-muted">registros</span>
         </div>
-        <div class="col-sm-6 d-flex align-items-center justify-content-sm-end gap-2">
+        <div class="col-md-4 d-flex align-items-center justify-content-md-center gap-2">
           <label for="globalSearch" class="mb-0">Buscar:</label>
           <input id="globalSearch" type="search" class="form-control form-control-sm" placeholder="Buscar...">
+        </div>
+        <div class="col-md-4 d-flex justify-content-md-end">
+          <div class="btn-group btn-group-sm" role="group">
+            <a href="index.php"
+               class="btn <?= $solo_deudores ? 'btn-primary' : 'btn-outline-primary' ?>">
+              Solo con deuda
+            </a>
+            <a href="index.php?filtro=todos"
+               class="btn <?= !$solo_deudores ? 'btn-primary' : 'btn-outline-primary' ?>">
+              Todos
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -226,19 +248,40 @@ if ($action === 'index') {
               <th>Nombres y Apellidos</th>
               <th>Cédula</th>
               <th>Teléfono</th>
+              <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
           <?php foreach($rows as $r): ?>
+            <?php
+              $idRes = (int)$r['id'];
+              // Cuotas pendientes según historial de pagos (día 25)
+              $pendientesRes = cuotas_pendientes_residente($pdo, $idRes, BASE_DUE);
+              $tiene_cuotas  = count($pendientesRes) > 0;
+              $deuda_extra   = isset($r['deuda_extra']) ? (float)$r['deuda_extra'] : 0.0;
+              $tiene_deuda_extra = $deuda_extra > 0.0001;
+              $tiene_deuda = $tiene_cuotas || $tiene_deuda_extra;
+
+              if ($solo_deudores && !$tiene_deuda) {
+                continue; // no mostrar si estamos filtrando solo deudores
+              }
+
+              if ($tiene_deuda) {
+                $estado_icono = '<span class="text-danger" title="Tiene pagos pendientes">&#9888;</span>'; // ⚠
+              } else {
+                $estado_icono = '<span class="text-success" title="Al día">&#10003;</span>'; // ✓
+              }
+            ?>
             <tr>
               <td><?= e($r['edif_apto']) ?></td>
               <td><?= e($r['nombres_apellidos']) ?></td>
               <td><?= e(format_cedula($r['cedula'])) ?></td>
               <td><?= e($r['telefono']) ?></td>
+              <td class="text-center"><?= $estado_icono ?></td>
               <td class="text-center">
                 <a class="btn btn-primary btn-sm"
-                   href="index.php?action=pagar&id=<?= (int)$r['id'] ?>">
+                   href="index.php?action=pagar&id=<?= $idRes ?>">
                   PAGAR MANTENIMIENTO
                 </a>
               </td>
@@ -290,9 +333,13 @@ if ($action==='new' || $action==='pagar') {
 
   render_header($editing?'Pagar / Crear recibo':'Agregar residente','residentes');
 
-  $pendientes = cuotas_pendientes(BASE_DUE, $data['fecha_pagada'] ?: null);
+  // Cuotas pendientes según historial (día 25)
+  $pendientes = $editing
+    ? cuotas_pendientes_residente($pdo, (int)$data['id'], BASE_DUE)
+    : [];
   $cantidad   = count($pendientes);
 
+  // Deuda extra actual (desde BD)
   $deuda_extra_db   = isset($data['deuda_extra']) ? (float)$data['deuda_extra'] : 0.0;
   $deuda_extra_fmt  = number_format($deuda_extra_db,2,'.','');
   $mostrar_card_deuda = $deuda_extra_db > 0;
@@ -445,7 +492,7 @@ if ($action==='new' || $action==='pagar') {
         <?php else: ?>
           <div class="alert alert-success mb-0">
             No hay cuotas pendientes. Próximo vencimiento:
-            <strong><?= e(fecha_larga_es(proximo_quinto())) ?></strong>.
+            <strong><?= e(fecha_larga_es(proximo_vencimiento())) ?></strong>.
           </div>
         <?php endif; ?>
 
