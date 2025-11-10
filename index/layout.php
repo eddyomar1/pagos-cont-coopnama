@@ -125,6 +125,46 @@ $(function(){
   $(document).on('click', '.btn-delete', function(e){
     if (!confirm('¿Eliminar este registro?')) e.preventDefault();
   });
+
+
+// ====== MODO DEUDA: al pulsar "Añadir / editar deuda atrasada" ======
+function enterDebtMode(){
+  // Flag oculto para el backend
+  if (!$('#modo_deuda').length){
+    $('<input>', {type:'hidden', id:'modo_deuda', name:'modo_deuda', value:'1'}).appendTo('form');
+  } else {
+    $('#modo_deuda').val('1');
+  }
+
+  // Mostrar card de deuda (si estuviera oculta) y habilitar edición del monto
+  $('#cardDeudaExtra').removeClass('d-none');
+  $('#deuda_restante').prop('disabled', false);
+
+  // Desactivar checkboxes de cuotas, desmarcarlos y ocultar la card
+  $('.due-option').prop('checked', false).prop('disabled', true);
+  $('#cardCuotas').addClass('d-none');
+
+  // No requerir fecha_pagada y deshabilitar su input para no confundir
+  $('input[name="fecha_pagada"]').prop('required', false).prop('disabled', true).val('');
+
+  // Bloquear "Monto a abonar ahora" y "Mora" y ponerlos en 0.00
+  $('#abono_deuda_extra').val('0.00').prop('disabled', true);
+  $('input[name="mora"]').val('0.00').prop('disabled', true);
+
+  // Como no hay cuotas ni abono, el "monto_a_pagar" queda en 0.00
+  $('input[name="monto_a_pagar"]').val('0.00');
+
+  // (Opcional) deshabilitar el propio botón para evitar dobles clics
+  $('#btnToggleDeuda').prop('disabled', true);
+}
+
+// Botón para entrar al modo deuda
+$(document).on('click', '#btnToggleDeuda', function(){
+  enterDebtMode();
+});
+
+
+  
 });
 </script>
 </body></html>

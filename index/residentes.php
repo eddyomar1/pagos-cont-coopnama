@@ -54,7 +54,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   }
 }
 
-/* 3.2 Pagar / crear recibo */
+/* 3.2 Pagar / crear recibo (y también “añadir/editar deuda” en modo_deuda) */
 if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
 
   $id = (int)body('id');
@@ -77,11 +77,15 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $codigo            = $residente['codigo'];
   $telefono          = $residente['telefono'];
 
+  // Flag de modo deuda
+  $modo_deuda = (body('modo_deuda','0') === '1');
+
+  // Valores comunes del formulario (cuando NO es modo deuda)
   $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
   $mora              = toDecimal(body('mora')) ?? 0;
   $no_recurrente     = isset($_POST['no_recurrente']) ? 1 : 0;
 
-  // Deuda extra: editable si el usuario abre la card
+  // Deuda extra: si el campo editable viene en el POST lo usamos; si no, usamos el hidden (BD)
   $deuda_restante_post = body('deuda_restante', '');
   if ($deuda_restante_post !== '') {
     $deuda_extra_actual = toDecimal($deuda_restante_post) ?? 0;
@@ -95,6 +99,33 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues'])
     ? $_POST['selected_dues'] : [];
   $selected_dues = array_values(array_filter($selected_dues, 'is_ymd'));
+
+  // === RAMA: MODO DEUDA ===
+  if ($modo_deuda) {
+    // En este modo NO estamos cobrando cuotas ni registrando pago.
+    // Objetivo: actualizar solo la deuda_extra del residente.
+    try{
+      $stmt=$pdo->prepare(
+        "UPDATE residentes SET
+          edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
+          deuda_extra=?
+         WHERE id=?"
+      );
+      $stmt->execute([
+        $edif_apto,$nombres_apellidos,$cedula_digits,$codigo ?: null,$telefono ?: null,
+        $deuda_extra_actual,
+        $id
+      ]);
+
+      header('Location:index.php?updated=1'); exit;
+    }catch(PDOException $ex){
+      $_SESSION['errors']=[ "No se pudo actualizar la deuda: ".$ex->getMessage() ];
+      $_SESSION['old']=$_POST;
+      header('Location:index.php?action=pagar&id='.$id); exit;
+    }
+  }
+
+  // === RAMA NORMAL: CREAR RECIBO / COBRAR ===
 
   // Fecha x pagar = último mes seleccionado (si hay)
   if ($selected_dues) {
@@ -118,7 +149,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   if(!required($nombres_apellidos)) $errors[]="Nombres y Apellidos es obligatorio.";
   if(!required($cedula_digits))     $errors[]="Cédula es obligatoria.";
   if($cedula_digits && !cedula_valida($cedula_digits)) $errors[]="Cédula no válida.";
-  if(!$fecha_pagada) $errors[]='Debe indicar la fecha pagada.';
+  if(!$fecha_pagada) $errors[]='Debe indicar la fecha pagada.'; // SOLO en modo normal
 
   if($errors){
     $_SESSION['errors']=$errors;
@@ -129,7 +160,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   try{
     $pdo->beginTransaction();
 
-    // Actualizar residente (estado resumido)
+    // Actualizar residente
     $stmt=$pdo->prepare(
       "UPDATE residentes SET
         edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
@@ -175,6 +206,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     header('Location:index.php?action=pagar&id='.$id); exit;
   }
 }
+
 
 /* 3.3 Eliminar residente */
 if ($action === 'delete' && isset($_GET['id'])) {
@@ -359,6 +391,8 @@ if ($action==='new' || $action==='pagar') {
         <input type="hidden" name="id" value="<?= (int)$data['id'] ?>">
       <?php endif; ?>
 
+      <input type="hidden" name="modo_deuda" id="modo_deuda" value="0">
+
       <!-- CARD DATOS -->
       <div class="card mb-3"><div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -452,7 +486,7 @@ if ($action==='new' || $action==='pagar') {
       </div>
 
       <!-- CARD CUOTAS PENDIENTES -->
-      <div class="card mb-3"><div class="card-body">
+      <div class="card mb-3" id="cardCuotas"><div class="card-body">
         <h6 class="mb-2">Cuotas pendientes</h6>
 
         <div class="d-flex flex-wrap gap-3 align-items-center mb-3">
