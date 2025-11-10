@@ -53,7 +53,16 @@ function fecha_larga_es($ymd){
 /**
  * Próximo vencimiento (día 25) a partir de hoy.
  */
-function proximo_vencimiento(){
+function proximo_vencimiento($fecha_x_pagar = null){
+  // Si nos pasan la fecha del último vencimiento cubierto (YYYY-MM-DD),
+  // el próximo vencimiento es simplemente ese mes + 1.
+  if (!empty($fecha_x_pagar) && preg_match('~^\d{4}-\d{2}-\d{2}$~', $fecha_x_pagar)) {
+    $d = new DateTime($fecha_x_pagar);
+    $d->modify('+1 month');
+    return $d->format('Y-m-d');
+  }
+
+  // Comportamiento antiguo: calcular a partir de hoy el siguiente día 25
   $hoy = new DateTime('today');
   $venc = new DateTime($hoy->format('Y-m-25'));
   if ($hoy >= $venc) {
@@ -61,6 +70,7 @@ function proximo_vencimiento(){
   }
   return $venc->format('Y-m-d');
 }
+
 
 /**
  * Devuelve un array de YYYY-MM-DD (día 25) con las cuotas pendientes

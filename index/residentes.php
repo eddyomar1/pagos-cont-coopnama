@@ -523,12 +523,18 @@ if ($action==='new' || $action==='pagar') {
               </div>
             <?php endforeach; ?>
           </div>
-        <?php else: ?>
-          <div class="alert alert-success mb-0">
-            No hay cuotas pendientes. Próximo vencimiento:
-            <strong><?= e(fecha_larga_es(proximo_vencimiento())) ?></strong>.
-          </div>
-        <?php endif; ?>
+<?php else: ?>
+  <?php
+    // Usamos fecha_x_pagar del residente (último mes cubierto),
+    // si existe. Si es null, proximo_vencimiento() se basa en "hoy".
+    $proximo = proximo_vencimiento($data['fecha_x_pagar'] ?? null);
+  ?>
+  <div class="alert alert-success mb-0">
+    No hay cuotas pendientes. Próximo vencimiento:
+    <strong><?= e(fecha_larga_es($proximo)) ?></strong>.
+  </div>
+<?php endif; ?>
+
 
         <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="">
       </div></div>
