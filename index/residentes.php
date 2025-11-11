@@ -81,8 +81,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $modo_deuda = (body('modo_deuda','0') === '1');
 
   // Valores comunes del formulario (cuando NO es modo deuda)
-  $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
-  $mora              = toDecimal(body('mora')) ?? 0;
+  $fecha_pagada      = date('Y-m-d');
   $no_recurrente     = isset($_POST['no_recurrente']) ? 1 : 0;
 
   // Deuda extra: si el campo editable viene en el POST lo usamos; si no, usamos el hidden (BD)
@@ -139,8 +138,15 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $monto_base_cuotas = count($selected_dues) * CUOTA_MONTO;
   $monto_base        = $monto_base_cuotas + $abono_deuda_extra;
 
+  $pendientes_totales = cuotas_pendientes_residente($pdo, $id, BASE_DUE);
+  $cantidad_pendientes_totales = count($pendientes_totales);
+  $mora_raw = $cantidad_pendientes_totales > 0
+    ? $cantidad_pendientes_totales * CUOTA_MONTO * 0.02
+    : 0.0;
+  $mora = number_format($mora_raw, 2, '.', '');
+
   $monto_a_pagar = $monto_base;
-  $monto_pagado  = $monto_base + $mora;
+  $monto_pagado  = $monto_base + $mora_raw;
 
   $nueva_deuda_extra = max(0, $deuda_extra_actual - $abono_deuda_extra);
 
@@ -333,6 +339,8 @@ if ($action === 'index') {
 if ($action==='new' || $action==='pagar') {
   $editing = $action==='pagar';
 
+  $today = date('Y-m-d');
+
   $data=[
     'id'=>null,
     'edif_apto'=>'',
@@ -341,7 +349,7 @@ if ($action==='new' || $action==='pagar') {
     'codigo'=>'',
     'telefono'=>'',
     'fecha_x_pagar'=>'',
-    'fecha_pagada'=>'',
+    'fecha_pagada'=>$editing ? $today : '',
     'mora'=>'0.00',
     'monto_a_pagar'=>'0.00',
     'monto_pagado'=>'0.00',
@@ -357,9 +365,13 @@ if ($action==='new' || $action==='pagar') {
     $row=$st->fetch();
     if(!$row){ header('Location:index.php'); exit; }
     $data=array_merge($data,$row);
+    $data['fecha_pagada']=$today;
   }
 
   if(!empty($_SESSION['old'])) $data=array_merge($data,$_SESSION['old']);
+  if ($editing) {
+    $data['fecha_pagada']=$today;
+  }
   $errors=$_SESSION['errors'] ?? [];
   $_SESSION['old']=$_SESSION['errors']=null;
 
@@ -383,6 +395,11 @@ if ($action==='new' || $action==='pagar') {
       $next_future_due = proximo_vencimiento($data['fecha_x_pagar'] ?? null);
     }
   }
+
+  // Mora automática (2% del total pendiente si hay atrasos)
+  $total_pendiente_cuotas = $cantidad * CUOTA_MONTO;
+  $mora_auto = $cantidad > 0 ? $total_pendiente_cuotas * 0.02 : 0.0;
+  $data['mora'] = number_format($mora_auto, 2, '.', '');
 
   // Deuda extra actual (desde BD)
   $deuda_extra_db   = isset($data['deuda_extra']) ? (float)$data['deuda_extra'] : 0.0;
@@ -448,13 +465,20 @@ if ($action==='new' || $action==='pagar') {
           <div class="col-md-3">
             <label class="form-label">Fecha de pago</label>
             <input type="date" name="fecha_pagada" class="form-control"
-                   value="<?=e($data['fecha_pagada'])?>">
+                   value="<?= $editing ? e($data['fecha_pagada']) : '' ?>"
+                   <?= $editing ? ' readonly' : '' ?>>
+            <?php if ($editing): ?>
+              <div class="form-text">Se usa automáticamente la fecha del día de hoy.</div>
+            <?php endif; ?>
           </div>
 
           <div class="col-md-3">
             <label class="form-label">Mora (si aplica)</label>
             <input type="text" name="mora" class="form-control"
-                   placeholder="0.00" value="<?=e($data['mora'])?>">
+                   placeholder="0.00" value="<?=e($data['mora'])?>" readonly>
+            <div class="form-text">
+              2% del total de cuotas vencidas (solo si existen atrasos).
+            </div>
           </div>
 
           <div class="col-md-3">

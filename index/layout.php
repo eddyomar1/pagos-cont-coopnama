@@ -296,7 +296,7 @@ function enterDebtMode(){
 
   // Bloquear "Monto a abonar ahora" y "Mora" y ponerlos en 0.00
   $('#abono_deuda_extra').val('0.00').prop('disabled', true);
-  $('input[name="mora"]').val('0.00').prop('disabled', true);
+  $('input[name="mora"]').val('0.00');
 
   // Como no hay cuotas ni abono, el "monto_a_pagar" queda en 0.00
   $('input[name="monto_a_pagar"]').val('0.00');
