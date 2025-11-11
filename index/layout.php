@@ -164,7 +164,6 @@ $(document).on('click', '#btnToggleDeuda', function(){
 });
 
 
-  
 });
 </script>
 </body></html>
