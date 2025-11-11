@@ -516,14 +516,26 @@ if ($action==='new' || $action==='pagar') {
             Total seleccionado: RD$ <strong id="totalSelected">0.00</strong>
           </span>
           <?php if ($editing && $next_future_due): ?>
-            <button
-              type="button"
-              id="btnAddAdvance"
-              class="btn btn-outline-primary btn-sm ms-auto"
-              title="Añadir un mes futuro para adelantar el pago"
-            >
-              Añadir mes futuro
-            </button>
+            <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+              <label for="advanceCount" class="form-label mb-0 small text-muted">Meses a adelantar</label>
+              <input
+                type="number"
+                id="advanceCount"
+                class="form-control form-control-sm"
+                value="1"
+                min="1"
+                max="<?= $max_future_advances ?>"
+                style="width:90px;"
+              >
+              <button
+                type="button"
+                id="btnAddAdvance"
+                class="btn btn-outline-primary btn-sm"
+                title="Añadir meses futuros para adelantar el pago"
+              >
+                Agregar
+              </button>
+            </div>
           <?php endif; ?>
         </div>
 

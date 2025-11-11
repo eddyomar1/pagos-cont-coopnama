@@ -130,12 +130,52 @@ $(function(){
   var $noDueMessage = $('#noDueMessage');
   var $nextFutureDue = $('#nextFutureDue');
   var $btnAddAdvance = $('#btnAddAdvance');
+  var addAdvanceBtnOriginalText = $btnAddAdvance.length ? $btnAddAdvance.text() : '';
+  var $advanceCount = $('#advanceCount');
   var advancesAdded = 0;
   var maxAdvances = 0;
   if ($nextFutureDue.length) {
     maxAdvances = parseInt($nextFutureDue.data('max-advances'), 10);
     if (isNaN(maxAdvances) || maxAdvances < 0) {
       maxAdvances = 0; // 0 => sin límite específico
+    }
+  }
+
+  function remainingAdvances(){
+    if (!maxAdvances) return Infinity;
+    return Math.max(0, maxAdvances - advancesAdded);
+  }
+
+  function updateAdvanceControlsState(){
+    if (!$btnAddAdvance.length) return;
+    var canAdd = $nextFutureDue.length && (!!$nextFutureDue.val()) && (!maxAdvances || remainingAdvances() > 0);
+    $btnAddAdvance.prop('disabled', !canAdd);
+    if (canAdd && addAdvanceBtnOriginalText) {
+      $btnAddAdvance.text(addAdvanceBtnOriginalText);
+    }
+
+    if ($advanceCount.length) {
+      if (canAdd) {
+        $advanceCount.prop('disabled', false);
+        if (maxAdvances) {
+          var rem = remainingAdvances();
+          $advanceCount.attr('max', rem);
+          var currentVal = parseInt($advanceCount.val(), 10);
+          if (isNaN(currentVal) || currentVal < 1) {
+            $advanceCount.val(1);
+          } else if (currentVal > rem) {
+            $advanceCount.val(rem);
+          }
+        } else {
+          $advanceCount.removeAttr('max');
+        }
+      } else {
+        $advanceCount.prop('disabled', true);
+      }
+    }
+
+    if (!canAdd && maxAdvances) {
+      $btnAddAdvance.text('Límite alcanzado');
     }
   }
 
@@ -165,11 +205,11 @@ $(function(){
     return year + '-' + String(month).padStart(2,'0') + '-' + day;
   }
 
-  function addFutureDue(){
-    if (!$nextFutureDue.length) return;
+  function addSingleFutureDue(){
+    if (!$nextFutureDue.length) return false;
     var nextDue = $nextFutureDue.val();
-    if (!nextDue) return;
-    if (maxAdvances && advancesAdded >= maxAdvances) return;
+    if (!nextDue) return false;
+    if (maxAdvances && advancesAdded >= maxAdvances) return false;
 
     var idx = $('.due-option').length;
     var label = formatDueLabel(nextDue);
@@ -202,18 +242,30 @@ $(function(){
     advancesAdded += 1;
     $nextFutureDue.val(addOneMonth(nextDue));
 
-    recalcDueSelection();
+    return true;
+  }
 
-    if (maxAdvances && advancesAdded >= maxAdvances) {
-      $btnAddAdvance.prop('disabled', true).text('Límite alcanzado');
+  function addFutureDue(count){
+    count = parseInt(count, 10);
+    if (isNaN(count) || count < 1) count = 1;
+    var added = 0;
+    for (var i=0; i<count; i++){
+      if (!addSingleFutureDue()) break;
+      added++;
     }
+    if (added > 0) {
+      recalcDueSelection();
+    }
+    updateAdvanceControlsState();
   }
 
   if ($btnAddAdvance.length) {
     $btnAddAdvance.on('click', function(){
-      addFutureDue();
+      var desired = $advanceCount.length ? $advanceCount.val() : 1;
+      addFutureDue(desired);
     });
   }
+  updateAdvanceControlsState();
 
   recalcDueSelection();
 
@@ -252,6 +304,7 @@ function enterDebtMode(){
   // (Opcional) deshabilitar el propio botón para evitar dobles clics
   $('#btnToggleDeuda').prop('disabled', true);
   $('#btnAddAdvance').prop('disabled', true);
+  $('#advanceCount').prop('disabled', true);
 }
 
 // Botón para entrar al modo deuda
