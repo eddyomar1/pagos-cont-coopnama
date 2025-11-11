@@ -371,6 +371,19 @@ if ($action==='new' || $action==='pagar') {
     : [];
   $cantidad   = count($pendientes);
 
+  // Preparar info para adelantos (meses futuros)
+  $max_future_advances = 12;
+  $next_future_due = null;
+  if ($editing) {
+    if ($pendientes) {
+      $lastPending = new DateTime(end($pendientes));
+      $lastPending->modify('+1 month');
+      $next_future_due = $lastPending->format('Y-m-d');
+    } else {
+      $next_future_due = proximo_vencimiento($data['fecha_x_pagar'] ?? null);
+    }
+  }
+
   // Deuda extra actual (desde BD)
   $deuda_extra_db   = isset($data['deuda_extra']) ? (float)$data['deuda_extra'] : 0.0;
   $deuda_extra_fmt  = number_format($deuda_extra_db,2,'.','');
@@ -502,41 +515,64 @@ if ($action==='new' || $action==='pagar') {
           <span class="text-muted">
             Total seleccionado: RD$ <strong id="totalSelected">0.00</strong>
           </span>
+          <?php if ($editing && $next_future_due): ?>
+            <button
+              type="button"
+              id="btnAddAdvance"
+              class="btn btn-outline-primary btn-sm ms-auto"
+              title="Añadir un mes futuro para adelantar el pago"
+            >
+              Añadir mes futuro
+            </button>
+          <?php endif; ?>
         </div>
 
-        <?php if ($pendientes): ?>
-          <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2">
-            <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
-              <div class="col">
-                <div class="form-check">
-                  <input
-                    class="form-check-input due-option"
-                    type="checkbox"
-                    name="selected_dues[]"
-                    id="due<?= $i ?>"
-                    value="<?= e($venc) ?>"
-                    data-label="<?= e($label) ?>"
-                    checked
-                  >
-                  <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
+        <?php
+          $proximo = proximo_vencimiento($data['fecha_x_pagar'] ?? null);
+        ?>
+        <div id="dueListWrapper">
+          <?php if ($pendientes): ?>
+            <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2" id="dueList">
+              <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
+                <div class="col">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input due-option"
+                      type="checkbox"
+                      name="selected_dues[]"
+                      id="due<?= $i ?>"
+                      value="<?= e($venc) ?>"
+                      data-label="<?= e($label) ?>"
+                      checked
+                    >
+                    <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
+                  </div>
                 </div>
-              </div>
-            <?php endforeach; ?>
-          </div>
-<?php else: ?>
-  <?php
-    // Usamos fecha_x_pagar del residente (último mes cubierto),
-    // si existe. Si es null, proximo_vencimiento() se basa en "hoy".
-    $proximo = proximo_vencimiento($data['fecha_x_pagar'] ?? null);
-  ?>
-  <div class="alert alert-success mb-0">
-    No hay cuotas pendientes. Próximo vencimiento:
-    <strong><?= e(fecha_larga_es($proximo)) ?></strong>.
-  </div>
-<?php endif; ?>
-
+              <?php endforeach; ?>
+            </div>
+            <div id="noDueMessage" class="alert alert-success mb-0 d-none">
+              No hay cuotas pendientes. Próximo vencimiento:
+              <strong><?= e(fecha_larga_es($proximo)) ?></strong>.
+            </div>
+          <?php else: ?>
+            <div id="noDueMessage" class="alert alert-success mb-3">
+              No hay cuotas pendientes. Próximo vencimiento:
+              <strong><?= e(fecha_larga_es($proximo)) ?></strong>.
+            </div>
+            <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2" id="dueList"></div>
+          <?php endif; ?>
+        </div>
 
         <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="">
+        <input type="hidden" id="cuotaMonto" value="<?= number_format(CUOTA_MONTO,2,'.','') ?>">
+        <?php if ($editing && $next_future_due): ?>
+          <input
+            type="hidden"
+            id="nextFutureDue"
+            value="<?= e($next_future_due) ?>"
+            data-max-advances="<?= $max_future_advances ?>"
+          >
+        <?php endif; ?>
       </div></div>
 
       <div class="d-flex gap-2 mt-3">

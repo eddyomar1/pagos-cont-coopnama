@@ -40,6 +40,10 @@ function render_footer(){ ?>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 <script>
 $(function(){
+  var cuotaMonto = parseFloat($('#cuotaMonto').val() || '1000');
+  if (isNaN(cuotaMonto) || cuotaMonto <= 0) {
+    cuotaMonto = 1000;
+  }
 
   // === DataTable RESIDENTES ===
   var $tbl1 = $('#tabla');
@@ -85,7 +89,7 @@ $(function(){
   function recalcDueSelection(){
     var $boxes = $('.due-option:checked');
     var count  = $boxes.length;
-    var totalCuotas = count * 1000;
+    var totalCuotas = count * cuotaMonto;
 
     var deudaStr = $('#deuda_restante').val() || $('#deuda_extra_actual').val() || '0';
     deudaStr = deudaStr.replace(',', '.');
@@ -120,6 +124,97 @@ $(function(){
   $(document).on('change', '.due-option', recalcDueSelection);
   $(document).on('input', '#abono_deuda_extra', recalcDueSelection);
   $(document).on('input', '#deuda_restante', recalcDueSelection);
+
+  // === Adelantos (meses futuros) ===
+  var $dueList = $('#dueList');
+  var $noDueMessage = $('#noDueMessage');
+  var $nextFutureDue = $('#nextFutureDue');
+  var $btnAddAdvance = $('#btnAddAdvance');
+  var advancesAdded = 0;
+  var maxAdvances = 0;
+  if ($nextFutureDue.length) {
+    maxAdvances = parseInt($nextFutureDue.data('max-advances'), 10);
+    if (isNaN(maxAdvances) || maxAdvances < 0) {
+      maxAdvances = 0; // 0 => sin límite específico
+    }
+  }
+
+  function formatDueLabel(dateStr){
+    var parts = (dateStr || '').split('-');
+    if (parts.length !== 3) return dateStr;
+    var day = parseInt(parts[2], 10);
+    var monthIndex = parseInt(parts[1], 10) - 1;
+    var year = parts[0];
+    var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    if (monthIndex < 0 || monthIndex > 11) return dateStr;
+    return (day || 25) + ' de ' + meses[monthIndex] + ' de ' + year;
+  }
+
+  function addOneMonth(dateStr){
+    var parts = (dateStr || '').split('-');
+    if (parts.length !== 3) return dateStr;
+    var year = parseInt(parts[0], 10);
+    var month = parseInt(parts[1], 10);
+    var day = parts[2];
+    if (isNaN(year) || isNaN(month)) return dateStr;
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+    return year + '-' + String(month).padStart(2,'0') + '-' + day;
+  }
+
+  function addFutureDue(){
+    if (!$nextFutureDue.length) return;
+    var nextDue = $nextFutureDue.val();
+    if (!nextDue) return;
+    if (maxAdvances && advancesAdded >= maxAdvances) return;
+
+    var idx = $('.due-option').length;
+    var label = formatDueLabel(nextDue);
+    var checkboxId = 'due' + idx;
+    if ($dueList.length) {
+      var $col = $('<div>', { 'class': 'col' });
+      var $formCheck = $('<div>', { 'class': 'form-check' }).appendTo($col);
+      $('<input>', {
+        'class': 'form-check-input due-option',
+        type: 'checkbox',
+        name: 'selected_dues[]',
+        id: checkboxId,
+        value: nextDue,
+        'data-label': label,
+        checked: true
+      }).appendTo($formCheck);
+      $('<label>', {
+        'class': 'form-check-label',
+        'for': checkboxId,
+        text: label
+      }).appendTo($formCheck);
+      $dueList.append($col);
+    }
+
+    $('#' + checkboxId).prop('checked', true);
+    if ($noDueMessage.length) {
+      $noDueMessage.addClass('d-none');
+    }
+
+    advancesAdded += 1;
+    $nextFutureDue.val(addOneMonth(nextDue));
+
+    recalcDueSelection();
+
+    if (maxAdvances && advancesAdded >= maxAdvances) {
+      $btnAddAdvance.prop('disabled', true).text('Límite alcanzado');
+    }
+  }
+
+  if ($btnAddAdvance.length) {
+    $btnAddAdvance.on('click', function(){
+      addFutureDue();
+    });
+  }
+
   recalcDueSelection();
 
   $(document).on('click', '.btn-delete', function(e){
@@ -156,6 +251,7 @@ function enterDebtMode(){
 
   // (Opcional) deshabilitar el propio botón para evitar dobles clics
   $('#btnToggleDeuda').prop('disabled', true);
+  $('#btnAddAdvance').prop('disabled', true);
 }
 
 // Botón para entrar al modo deuda
