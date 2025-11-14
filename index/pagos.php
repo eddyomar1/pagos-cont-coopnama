@@ -14,6 +14,7 @@ $sql = "
   ORDER BY p.fecha_recibo DESC
 ";
 $rows = $pdo->query($sql)->fetchAll();
+$current_section = 'pagos';
 
 render_header('Pagos registrados','pagos');
 ?>
@@ -22,7 +23,7 @@ render_header('Pagos registrados','pagos');
 <div class="card mb-3">
   <div class="card-body">
     <div class="row g-3 align-items-center">
-      <div class="col-sm-6 d-flex align-items-center gap-2">
+      <div class="col-md-4 d-flex align-items-center gap-2">
         <span>Mostrar</span>
         <select id="lenSelect" class="form-select form-select-sm" style="width:auto;">
           <option value="5">5</option>
@@ -33,9 +34,21 @@ render_header('Pagos registrados','pagos');
         </select>
         <span class="text-muted">registros</span>
       </div>
-      <div class="col-sm-6 d-flex align-items-center justify-content-sm-end gap-2">
+      <div class="col-md-4 d-flex align-items-center justify-content-md-center gap-2">
         <label for="globalSearch" class="mb-0">Buscar:</label>
         <input id="globalSearch" type="search" class="form-control form-control-sm" placeholder="Buscar...">
+      </div>
+      <div class="col-md-4 d-flex justify-content-md-end">
+        <div class="btn-group btn-group-sm" role="group">
+          <a href="index.php"
+             class="btn <?= ($current_section==='residentes') ? 'btn-primary' : 'btn-outline-primary' ?>">
+            Residentes
+          </a>
+          <a href="index.php?page=pagos"
+             class="btn <?= ($current_section==='pagos') ? 'btn-primary' : 'btn-outline-primary' ?>">
+            Pagos
+          </a>
+        </div>
       </div>
     </div>
   </div>

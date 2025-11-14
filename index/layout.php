@@ -14,21 +14,6 @@ function render_header(string $title='Residentes', string $active='residentes'){
  .table thead th{font-weight:600}
 </style>
 </head><body>
-<nav class="navbar navbar-expand-lg bg-white shadow-sm">
-  <div class="container">
-    <a class="navbar-brand fw-bold" href="index.php">RESIDENCIAL COOPNAMA II</a>
-    <div class="ms-auto btn-group">
-      <a href="index.php"
-         class="btn btn-sm <?= $active==='residentes' ? 'btn-primary' : 'btn-outline-primary' ?>">
-         Residentes
-      </a>
-      <a href="index.php?page=pagos"
-         class="btn btn-sm <?= $active==='pagos' ? 'btn-primary' : 'btn-outline-primary' ?>">
-         Pagos
-      </a>
-    </div>
-  </div>
-</nav>
 <main class="container my-4">
 <?php }
 
