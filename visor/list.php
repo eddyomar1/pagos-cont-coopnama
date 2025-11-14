@@ -31,8 +31,9 @@ if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro elim
       <?php foreach($rows as $r):
         $missing=[];
         foreach($fieldsToCheck as $field=>$label){
-          $value = $r[$field] ?? '';
-          if(trim((string)$value) === ''){
+          $value = trim((string)($r[$field] ?? ''));
+          $isEmpty = $value === '' || strcasecmp($value, 'N/A') === 0;
+          if($isEmpty){
             $missing[]=$label;
           }
         }
