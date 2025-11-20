@@ -554,24 +554,26 @@ if ($action==='new' || $action==='pagar') {
           </span>
           <?php if ($editing && $next_future_due): ?>
             <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
-              <label for="advanceCount" class="form-label mb-0 small text-muted">Meses a adelantar</label>
-              <input
-                type="number"
-                id="advanceCount"
-                class="form-control form-control-sm"
-                value="1"
-                min="1"
-                max="<?= $max_future_advances ?>"
-                style="width:90px;"
-              >
-              <button
-                type="button"
-                id="btnAddAdvance"
-                class="btn btn-outline-primary btn-sm"
-                title="Añadir meses futuros para adelantar el pago"
-              >
-                Agregar
-              </button>
+              <span class="form-label mb-0 small text-muted">Meses a adelantar</span>
+              <div class="d-flex align-items-center gap-1">
+                <button
+                  type="button"
+                  id="btnAdvanceMinus"
+                  class="btn btn-outline-secondary btn-sm"
+                  title="Disminuir meses adelantados"
+                >&minus;</button>
+                <span
+                  id="advanceCounter"
+                  class="badge bg-light text-dark px-3 py-2"
+                  title="Meses adelantados actualmente"
+                >0</span>
+                <button
+                  type="button"
+                  id="btnAdvancePlus"
+                  class="btn btn-outline-primary btn-sm"
+                  title="Aumentar meses adelantados"
+                >+</button>
+              </div>
             </div>
           <?php endif; ?>
         </div>

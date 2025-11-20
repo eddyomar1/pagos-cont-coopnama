@@ -114,10 +114,11 @@ $(function(){
   var $dueList = $('#dueList');
   var $noDueMessage = $('#noDueMessage');
   var $nextFutureDue = $('#nextFutureDue');
-  var $btnAddAdvance = $('#btnAddAdvance');
-  var addAdvanceBtnOriginalText = $btnAddAdvance.length ? $btnAddAdvance.text() : '';
-  var $advanceCount = $('#advanceCount');
+  var $btnAdvancePlus = $('#btnAdvancePlus');
+  var $btnAdvanceMinus = $('#btnAdvanceMinus');
+  var $advanceCounter = $('#advanceCounter');
   var advancesAdded = 0;
+  var futureDueStack = [];
   var maxAdvances = 0;
   if ($nextFutureDue.length) {
     maxAdvances = parseInt($nextFutureDue.data('max-advances'), 10);
@@ -132,35 +133,15 @@ $(function(){
   }
 
   function updateAdvanceControlsState(){
-    if (!$btnAddAdvance.length) return;
     var canAdd = $nextFutureDue.length && (!!$nextFutureDue.val()) && (!maxAdvances || remainingAdvances() > 0);
-    $btnAddAdvance.prop('disabled', !canAdd);
-    if (canAdd && addAdvanceBtnOriginalText) {
-      $btnAddAdvance.text(addAdvanceBtnOriginalText);
+    if ($btnAdvancePlus.length) {
+      $btnAdvancePlus.prop('disabled', !canAdd);
     }
-
-    if ($advanceCount.length) {
-      if (canAdd) {
-        $advanceCount.prop('disabled', false);
-        if (maxAdvances) {
-          var rem = remainingAdvances();
-          $advanceCount.attr('max', rem);
-          var currentVal = parseInt($advanceCount.val(), 10);
-          if (isNaN(currentVal) || currentVal < 1) {
-            $advanceCount.val(1);
-          } else if (currentVal > rem) {
-            $advanceCount.val(rem);
-          }
-        } else {
-          $advanceCount.removeAttr('max');
-        }
-      } else {
-        $advanceCount.prop('disabled', true);
-      }
+    if ($btnAdvanceMinus.length) {
+      $btnAdvanceMinus.prop('disabled', advancesAdded === 0);
     }
-
-    if (!canAdd && maxAdvances) {
-      $btnAddAdvance.text('Límite alcanzado');
+    if ($advanceCounter.length) {
+      $advanceCounter.text(advancesAdded);
     }
   }
 
@@ -202,8 +183,8 @@ $(function(){
     if ($dueList.length) {
       var $col = $('<div>', { 'class': 'col' });
       var $formCheck = $('<div>', { 'class': 'form-check' }).appendTo($col);
-      $('<input>', {
-        'class': 'form-check-input due-option',
+      var $checkbox = $('<input>', {
+        'class': 'form-check-input due-option future-due',
         type: 'checkbox',
         name: 'selected_dues[]',
         id: checkboxId,
@@ -224,6 +205,7 @@ $(function(){
       $noDueMessage.addClass('d-none');
     }
 
+    futureDueStack.push(nextDue);
     advancesAdded += 1;
     $nextFutureDue.val(addOneMonth(nextDue));
 
@@ -244,10 +226,54 @@ $(function(){
     updateAdvanceControlsState();
   }
 
-  if ($btnAddAdvance.length) {
-    $btnAddAdvance.on('click', function(){
-      var desired = $advanceCount.length ? $advanceCount.val() : 1;
-      addFutureDue(desired);
+  function removeSingleFutureDue(){
+    var $futureBoxes = $('.due-option.future-due');
+    if (!$futureBoxes.length) return false;
+    var $lastBox = $futureBoxes.last();
+    var removedDate = $lastBox.val();
+    var $col = $lastBox.closest('.col');
+    if ($col.length) {
+      $col.remove();
+    } else {
+      $lastBox.closest('.form-check').remove();
+    }
+    if (futureDueStack.length) {
+      var restored = futureDueStack.pop();
+      if ($nextFutureDue.length) {
+        $nextFutureDue.val(restored);
+      }
+    } else if ($nextFutureDue.length && removedDate) {
+      $nextFutureDue.val(removedDate);
+    }
+    advancesAdded = Math.max(0, advancesAdded - 1);
+    if ($dueList.find('.due-option').length === 0 && $noDueMessage.length) {
+      $noDueMessage.removeClass('d-none');
+    }
+    recalcDueSelection();
+    return true;
+  }
+
+  function removeFutureDue(count){
+    count = parseInt(count, 10);
+    if (isNaN(count) || count < 1) count = 1;
+    var removed = 0;
+    for (var i=0; i<count; i++){
+      if (!removeSingleFutureDue()) break;
+      removed++;
+    }
+    if (removed > 0) {
+      updateAdvanceControlsState();
+    }
+  }
+
+  if ($btnAdvancePlus.length) {
+    $btnAdvancePlus.on('click', function(){
+      addFutureDue(1);
+    });
+  }
+  if ($btnAdvanceMinus.length) {
+    $btnAdvanceMinus.on('click', function(){
+      removeFutureDue(1);
     });
   }
   updateAdvanceControlsState();
