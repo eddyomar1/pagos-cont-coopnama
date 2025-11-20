@@ -73,10 +73,6 @@ $(function(){
   // === CUOTAS + DEUDA EXTRA ===
   var $moraInput = $('input[name="mora"]');
   var $montoPagarInput = $('input[name="monto_a_pagar"]');
-  var $totalSelectedMoraSection = $('#totalSelectedMoraSection');
-  var $totalSelectedMora = $('#totalSelectedMora');
-  var $totalSelectedWithMora = $('#totalSelectedWithMora');
-  var $totalPagarDetail = $('#totalPagarDetail');
 
   function recalcDueSelection(){
     var $boxes = $('.due-option:checked');
@@ -109,44 +105,11 @@ $(function(){
     }
 
     $('#countSelected').text(count);
-    var totalBaseFormatted = totalBase.toLocaleString('es-DO', {
+    var totalConMoraFormatted = totalConMora.toLocaleString('es-DO', {
       minimumFractionDigits:2,
       maximumFractionDigits:2
     });
-    $('#totalSelected').text(totalBaseFormatted);
-
-    if ($totalSelectedMoraSection.length) {
-      if (moraValue > 0) {
-        var moraFormatted = moraValue.toLocaleString('es-DO', {
-          minimumFractionDigits:2,
-          maximumFractionDigits:2
-        });
-        var totalConMoraFormatted = totalConMora.toLocaleString('es-DO', {
-          minimumFractionDigits:2,
-          maximumFractionDigits:2
-        });
-        $totalSelectedMoraSection.removeClass('d-none');
-        if ($totalSelectedMora.length) $totalSelectedMora.text(moraFormatted);
-        if ($totalSelectedWithMora.length) $totalSelectedWithMora.text(totalConMoraFormatted);
-      } else {
-        $totalSelectedMoraSection.addClass('d-none');
-      }
-    }
-
-    if ($totalPagarDetail.length) {
-      var detail = 'Subtotal RD$ ' + totalBaseFormatted;
-      if (moraValue > 0) {
-        detail += ' + Mora RD$ ' + moraValue.toLocaleString('es-DO', {
-          minimumFractionDigits:2,
-          maximumFractionDigits:2
-        });
-        detail += ' = RD$ ' + totalConMora.toLocaleString('es-DO', {
-          minimumFractionDigits:2,
-          maximumFractionDigits:2
-        });
-      }
-      $totalPagarDetail.text(detail);
-    }
+    $('#totalSelected').text(totalConMoraFormatted);
 
     var despues = Math.max(0, deudaActual - abono);
     if ($('#deuda_despues').length){

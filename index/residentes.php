@@ -511,7 +511,7 @@ if ($action==='new' || $action==='pagar') {
             <input type="text" name="monto_a_pagar" class="form-control"
                    placeholder="0.00" value="<?=e($data['monto_a_pagar'])?>" disabled>
             <div class="form-text text-muted" id="totalPagarDetail">
-              Subtotal RD$ 0.00
+              Mensualidad + Mora
             </div>
           </div>
         </div>
@@ -565,12 +565,7 @@ if ($action==='new' || $action==='pagar') {
             Seleccionadas: <strong id="countSelected">0</strong>
           </span>
           <span class="text-muted">
-            Total seleccionado:
-            RD$ <strong id="totalSelected">0.00</strong>
-            <span class="d-none" id="totalSelectedMoraSection">
-              + Mora RD$ <strong id="totalSelectedMora">0.00</strong>
-              = RD$ <strong id="totalSelectedWithMora">0.00</strong>
-            </span>
+            Total seleccionado: RD$ <strong id="totalSelected">0.00</strong>
           </span>
           <?php if ($editing && $next_future_due): ?>
             <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
