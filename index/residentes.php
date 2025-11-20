@@ -298,7 +298,7 @@ if ($action === 'index') {
     <div class="card-body">
       <h5 class="mb-3">LISTA DE COPROPIETARIOS</h5>
       <div class="table-responsive">
-        <table id="tabla" class="table table-striped table-bordered align-middle">
+        <table id="tabla" class="table table-striped table-bordered align-middle table-nowrap">
           <thead class="table-light">
             <tr>
               <th>Edif/Apto</th>

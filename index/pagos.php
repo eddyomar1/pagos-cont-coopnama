@@ -59,7 +59,7 @@ render_header('Pagos registrados','pagos');
   <div class="card-body">
     <h5 class="mb-3">Pagos registrados</h5>
     <div class="table-responsive">
-      <table id="tabla_pagos" class="table table-striped table-bordered align-middle">
+      <table id="tabla_pagos" class="table table-striped table-bordered align-middle table-nowrap">
         <thead class="table-light">
           <tr>
             <th>#</th>
