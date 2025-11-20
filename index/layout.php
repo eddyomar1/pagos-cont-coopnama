@@ -71,6 +71,13 @@ $(function(){
   });
 
   // === CUOTAS + DEUDA EXTRA ===
+  var $moraInput = $('input[name="mora"]');
+  var $montoPagarInput = $('input[name="monto_a_pagar"]');
+  var $totalSelectedMoraSection = $('#totalSelectedMoraSection');
+  var $totalSelectedMora = $('#totalSelectedMora');
+  var $totalSelectedWithMora = $('#totalSelectedWithMora');
+  var $totalPagarDetail = $('#totalPagarDetail');
+
   function recalcDueSelection(){
     var $boxes = $('.due-option:checked');
     var count  = $boxes.length;
@@ -87,18 +94,59 @@ $(function(){
     if (isNaN(abono)) abono = 0;
 
     var totalBase = totalCuotas + abono;
+    var moraValue = 0;
+    if ($moraInput.length) {
+      var moraStr = ($moraInput.val() || '0').replace(',', '.');
+      var moraParsed = parseFloat(moraStr);
+      if (!isNaN(moraParsed) && moraParsed > 0) {
+        moraValue = moraParsed;
+      }
+    }
+    var totalConMora = totalBase + moraValue;
 
-    if ($('input[name="monto_a_pagar"]').length){
-      $('input[name="monto_a_pagar"]').val(totalBase.toFixed(2));
+    if ($montoPagarInput.length){
+      $montoPagarInput.val(totalConMora.toFixed(2));
     }
 
     $('#countSelected').text(count);
-    $('#totalSelected').text(
-      totalBase.toLocaleString('es-DO', {
-        minimumFractionDigits:2,
-        maximumFractionDigits:2
-      })
-    );
+    var totalBaseFormatted = totalBase.toLocaleString('es-DO', {
+      minimumFractionDigits:2,
+      maximumFractionDigits:2
+    });
+    $('#totalSelected').text(totalBaseFormatted);
+
+    if ($totalSelectedMoraSection.length) {
+      if (moraValue > 0) {
+        var moraFormatted = moraValue.toLocaleString('es-DO', {
+          minimumFractionDigits:2,
+          maximumFractionDigits:2
+        });
+        var totalConMoraFormatted = totalConMora.toLocaleString('es-DO', {
+          minimumFractionDigits:2,
+          maximumFractionDigits:2
+        });
+        $totalSelectedMoraSection.removeClass('d-none');
+        if ($totalSelectedMora.length) $totalSelectedMora.text(moraFormatted);
+        if ($totalSelectedWithMora.length) $totalSelectedWithMora.text(totalConMoraFormatted);
+      } else {
+        $totalSelectedMoraSection.addClass('d-none');
+      }
+    }
+
+    if ($totalPagarDetail.length) {
+      var detail = 'Subtotal RD$ ' + totalBaseFormatted;
+      if (moraValue > 0) {
+        detail += ' + Mora RD$ ' + moraValue.toLocaleString('es-DO', {
+          minimumFractionDigits:2,
+          maximumFractionDigits:2
+        });
+        detail += ' = RD$ ' + totalConMora.toLocaleString('es-DO', {
+          minimumFractionDigits:2,
+          maximumFractionDigits:2
+        });
+      }
+      $totalPagarDetail.text(detail);
+    }
 
     var despues = Math.max(0, deudaActual - abono);
     if ($('#deuda_despues').length){
@@ -109,6 +157,7 @@ $(function(){
   $(document).on('change', '.due-option', recalcDueSelection);
   $(document).on('input', '#abono_deuda_extra', recalcDueSelection);
   $(document).on('input', '#deuda_restante', recalcDueSelection);
+  $(document).on('input', 'input[name="mora"]', recalcDueSelection);
 
   // === Adelantos (meses futuros) ===
   var $dueList = $('#dueList');
@@ -312,10 +361,12 @@ function enterDebtMode(){
   // Como no hay cuotas ni abono, el "monto_a_pagar" queda en 0.00
   $('input[name="monto_a_pagar"]').val('0.00');
 
-  // (Opcional) deshabilitar el propio botón para evitar dobles clics
+  // Deshabilitar controles de adelantos y el botón original
   $('#btnToggleDeuda').prop('disabled', true);
-  $('#btnAddAdvance').prop('disabled', true);
-  $('#advanceCount').prop('disabled', true);
+  if ($btnAdvancePlus.length) $btnAdvancePlus.prop('disabled', true);
+  if ($btnAdvanceMinus.length) $btnAdvanceMinus.prop('disabled', true);
+
+  recalcDueSelection();
 }
 
 // Botón para entrar al modo deuda
