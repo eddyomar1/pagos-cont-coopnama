@@ -488,7 +488,7 @@ if ($action==='new' || $action==='pagar') {
           <div class="col-md-3">
             <label class="form-label">Mora (si aplica)</label>
             <input type="text" name="mora" class="form-control"
-                   placeholder="0.00" value="<?=e($data['mora'])?>" readonly>
+                   placeholder="0.00" value="<?=e($data['mora'])?>" >
             <div class="form-text">
               2% del total de cuotas vencidas (solo si existen atrasos).
             </div>
