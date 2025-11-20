@@ -566,7 +566,10 @@ if ($action==='new' || $action==='pagar') {
           </span>
           <span class="text-muted">
             Total seleccionado:
-            RD$  <strong id="totalSelectedWithMora">0.00</strong>
+            RD$ <strong id="totalSelected">0.00</strong>
+            <span class="d-none" id="totalSelectedMoraSection">
+              + Mora RD$ <strong id="totalSelectedMora">0.00</strong>
+              = RD$ <strong id="totalSelectedWithMora">0.00</strong>
             </span>
           </span>
           <?php if ($editing && $next_future_due): ?>
