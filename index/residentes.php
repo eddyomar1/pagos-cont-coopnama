@@ -140,9 +140,15 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
 
   $pendientes_totales = cuotas_pendientes_residente($pdo, $id, BASE_DUE);
   $cantidad_pendientes_totales = count($pendientes_totales);
-  $mora_raw = $cantidad_pendientes_totales > 0
+  $mora_auto_raw = $cantidad_pendientes_totales > 0
     ? $cantidad_pendientes_totales * CUOTA_MONTO * 0.02
     : 0.0;
+  $mora_manual = toDecimal(body('mora'));
+  if ($mora_manual !== null) {
+    $mora_raw = max(0.0, (float)$mora_manual);
+  } else {
+    $mora_raw = $mora_auto_raw;
+  }
   $mora = number_format($mora_raw, 2, '.', '');
 
   $monto_a_pagar = $monto_base;
@@ -370,6 +376,8 @@ if ($action==='new' || $action==='pagar') {
     'no_recurrente'=>0
   ];
 
+  $old_inputs = $_SESSION['old'] ?? [];
+
   if($editing){
     $id=(int)($_GET['id'] ?? 0);
     if($id<=0){ header('Location:index.php'); exit; }
@@ -381,11 +389,13 @@ if ($action==='new' || $action==='pagar') {
     $data['fecha_pagada']=$today;
   }
 
-  if(!empty($_SESSION['old'])) $data=array_merge($data,$_SESSION['old']);
+  if(!empty($old_inputs)) $data=array_merge($data,$old_inputs);
   if ($editing) {
     $data['fecha_pagada']=$today;
   }
   $errors=$_SESSION['errors'] ?? [];
+  $old_mora_manual = isset($old_inputs['mora']) ? trim((string)$old_inputs['mora']) : '';
+  $had_manual_mora = $old_mora_manual !== '';
   $_SESSION['old']=$_SESSION['errors']=null;
 
   render_header($editing?'Pagar / Crear recibo':'Agregar residente','residentes');
@@ -412,7 +422,9 @@ if ($action==='new' || $action==='pagar') {
   // Mora automática (2% del total pendiente si hay atrasos)
   $total_pendiente_cuotas = $cantidad * CUOTA_MONTO;
   $mora_auto = $cantidad > 0 ? $total_pendiente_cuotas * 0.02 : 0.0;
-  $data['mora'] = number_format($mora_auto, 2, '.', '');
+  if (!$had_manual_mora) {
+    $data['mora'] = number_format($mora_auto, 2, '.', '');
+  }
 
   // Deuda extra actual (desde BD)
   $deuda_extra_db   = isset($data['deuda_extra']) ? (float)$data['deuda_extra'] : 0.0;
@@ -490,7 +502,7 @@ if ($action==='new' || $action==='pagar') {
             <input type="text" name="mora" class="form-control"
                    placeholder="0.00" value="<?=e($data['mora'])?>" >
             <div class="form-text">
-              2% del total de cuotas vencidas (solo si existen atrasos).
+              Por defecto es 2% de las cuotas vencidas, pero puede ajustarlo manualmente.
             </div>
           </div>
 
