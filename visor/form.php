@@ -51,7 +51,7 @@ header_html($editing?'Editar residente':'Agregar residente');
     </div>
   <?php endif; ?>
 
-  <form method="post" action="?action=<?=$editing?'update':'store'?>">
+  <form id="residenteForm" method="post" action="?action=<?=$editing?'update':'store'?>">
     <?php if($editing): ?>
       <input type="hidden" name="id" value="<?= (int)$data['id'] ?>">
     <?php endif; ?>
@@ -86,15 +86,16 @@ header_html($editing?'Editar residente':'Agregar residente');
     </div>
 
     <?php if($hasDeudaInicial): ?>
-      <div class="row g-3 mt-2">
-        <div class="col-md-3">
+      <hr class="my-4">
+      <div class="row g-3 align-items-start">
+        <div class="col-md-3 order-md-1">
           <label class="form-label">Deuda inicial</label>
           <input type="text" name="deuda_inicial" class="form-control"
                  placeholder="0.00"
                  value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>">
           <div class="form-text">Al crear un residente, este valor se copia a la deuda actual.</div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 order-md-2">
           <label class="form-label">Deuda actual</label>
           <input type="text" name="deuda_extra" class="form-control"
                  placeholder="0.00"
@@ -103,12 +104,16 @@ header_html($editing?'Editar residente':'Agregar residente');
         </div>
       </div>
     <?php endif; ?>
-
-    <div class="d-flex gap-2 mt-4">
-      <button class="btn btn-primary"><?=$editing?'Actualizar':'Guardar'?></button>
-      <a class="btn btn-outline-secondary" href="?action=full">Cancelar</a>
-    </div>
   </form>
 </div></div></div></div>
+
+<div class="row justify-content-center mt-3"><div class="col-lg-10">
+  <div class="card"><div class="card-body">
+    <div class="d-flex justify-content-end gap-2">
+      <button form="residenteForm" class="btn btn-primary"><?=$editing?'Actualizar':'Guardar'?></button>
+      <a class="btn btn-outline-secondary" href="?action=full">Cancelar</a>
+    </div>
+  </div></div>
+</div></div>
 <?php
 footer_html();
