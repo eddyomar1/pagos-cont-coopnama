@@ -42,5 +42,33 @@ function toDateOrNull($v){
   return null;
 }
 
+/**
+ * Asegura la columna deuda_inicial en residentes (crea si falta).
+ */
+function ensure_deuda_inicial_column(PDO $pdo): bool{
+  static $checked = false;
+  static $exists  = false;
+  if ($checked) return $exists;
+
+  $checked = true;
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'deuda_inicial'");
+    $exists = (bool) ($st && $st->fetch());
+    if (!$exists) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN deuda_inicial DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER telefono");
+      $exists = true;
+    }
+  }catch(Throwable $e){
+    $exists = false;
+  }
+
+  if (!defined('HAS_DEUDA_INICIAL')) {
+    define('HAS_DEUDA_INICIAL', $exists);
+  }
+  return $exists;
+}
+
 /* Routing */
 $action = $_GET['action'] ?? 'full';
+
+ensure_deuda_inicial_column($pdo);

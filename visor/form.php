@@ -9,6 +9,8 @@ $data=[
   'cedula'=>'',
   'codigo'=>'',
   'telefono'=>'',
+  'deuda_inicial'=>'0.00',
+  'deuda_extra'=>'0.00',
   'fecha_x_pagar'=>'',
   'fecha_pagada'=>'',
   'mora'=>'',
@@ -28,6 +30,10 @@ if($editing){
 }
 
 if(!empty($_SESSION['old'])) $data=array_merge($data,$_SESSION['old']);
+if(!$editing && isset($data['deuda_inicial'])){
+  // Mostrar la deuda actual igual a la inicial al crear
+  $data['deuda_extra'] = $data['deuda_inicial'];
+}
 $errors=$_SESSION['errors'] ?? [];
 $_SESSION['old']=$_SESSION['errors']=null;
 
@@ -75,6 +81,30 @@ header_html($editing?'Editar residente':'Agregar residente');
         <label class="form-label">Teléfono</label>
         <input type="text" name="telefono" class="form-control" maxlength="50"
                value="<?=e($data['telefono'])?>">
+      </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+      <div class="col-md-3">
+        <label class="form-label">Deuda inicial</label>
+        <?php if($editing): ?>
+          <input type="text" class="form-control"
+                 value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>" disabled>
+          <input type="hidden" name="deuda_inicial"
+                 value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>">
+        <?php else: ?>
+          <input type="text" name="deuda_inicial" class="form-control"
+                 placeholder="0.00"
+                 value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>">
+          <div class="form-text">Se guardará también como deuda pendiente actual.</div>
+        <?php endif; ?>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Deuda actual</label>
+        <input type="text" class="form-control"
+               value="<?= e(number_format((float)$data['deuda_extra'],2,'.','')) ?>" disabled>
+        <input type="hidden" name="deuda_extra"
+               value="<?= e(number_format((float)$data['deuda_extra'],2,'.','')) ?>">
       </div>
     </div>
 

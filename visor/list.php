@@ -2,7 +2,12 @@
 /*********** Vista: listado completo ***********/
 header_html('Residentes (vista completa)');
 
-$rows=$pdo->query("SELECT id, cedula, codigo, edif_apto, nombres_apellidos, telefono FROM residentes ORDER BY id DESC")->fetchAll();
+$hasDeudaInicial = defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL;
+$columns = "id, cedula, codigo, edif_apto, nombres_apellidos, telefono";
+if ($hasDeudaInicial) {
+  $columns .= ", deuda_inicial, deuda_extra";
+}
+$rows=$pdo->query("SELECT $columns FROM residentes ORDER BY id DESC")->fetchAll();
 $fieldsToCheck = [
   'cedula'            => 'Cédula',
   'codigo'            => 'Código',
@@ -24,6 +29,10 @@ if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro elim
         <th>Edif. Apart</th>
         <th>Nombres y Apellidos</th>
         <th>Teléfono</th>
+        <?php if($hasDeudaInicial): ?>
+          <th>Deuda inicial</th>
+          <th>Deuda actual</th>
+        <?php endif; ?>
         <th>Estado</th>
         <th class="text-center actions-col">Acciones</th>
       </tr></thead>
@@ -45,6 +54,10 @@ if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro elim
           <td><?= e($r['edif_apto']) ?></td>
           <td><?= e($r['nombres_apellidos']) ?></td>
           <td><?= e($r['telefono']) ?></td>
+          <?php if($hasDeudaInicial): ?>
+            <td>RD$ <?= e(number_format((float)($r['deuda_inicial'] ?? 0),2,'.',',')) ?></td>
+            <td>RD$ <?= e(number_format((float)($r['deuda_extra'] ?? 0),2,'.',',')) ?></td>
+          <?php endif; ?>
           <td>
             <?php if($hasMissing): ?>
               <span class="badge text-bg-warning" title="<?= e('Faltan: '.implode(', ', $missing)) ?>">Incompleto</span>

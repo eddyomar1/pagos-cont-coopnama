@@ -12,3 +12,6 @@ require __DIR__ . '/config.php';
 require __DIR__ . '/db.php';
 require __DIR__ . '/helpers.php';
 require __DIR__ . '/layout.php';
+
+// Asegura que la columna de deuda inicial exista antes de usarla
+ensure_deuda_inicial_column($pdo);

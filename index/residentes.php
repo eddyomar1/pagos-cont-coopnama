@@ -15,6 +15,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $codigo            = body('codigo');
   $telefono          = body('telefono');
   $deuda_extra       = toDecimal(body('deuda_extra')) ?? 0;
+  $deuda_inicial     = $deuda_extra;
 
   $errors=[];
   if(!required($edif_apto))         $errors[]="Edif/Apto es obligatorio.";
@@ -31,21 +32,40 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   }
 
   try{
-    $stmt=$pdo->prepare(
-      "INSERT INTO residentes
-       (edif_apto,nombres_apellidos,cedula,codigo,telefono,
-        fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_extra,no_recurrente)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,0)"
-    );
-    $stmt->execute([
-      $edif_apto,
-      $nombres_apellidos,
-      $cedula_digits,
-      $codigo ?: null,
-      $telefono ?: null,
-      null,null,0,0,0,
-      $deuda_extra
-    ]);
+    if (defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL) {
+      $stmt=$pdo->prepare(
+        "INSERT INTO residentes
+         (edif_apto,nombres_apellidos,cedula,codigo,telefono,
+          fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_inicial,deuda_extra,no_recurrente)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)"
+      );
+      $stmt->execute([
+        $edif_apto,
+        $nombres_apellidos,
+        $cedula_digits,
+        $codigo ?: null,
+        $telefono ?: null,
+        null,null,0,0,0,
+        $deuda_inicial,
+        $deuda_extra
+      ]);
+    } else {
+      $stmt=$pdo->prepare(
+        "INSERT INTO residentes
+         (edif_apto,nombres_apellidos,cedula,codigo,telefono,
+          fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_extra,no_recurrente)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,0)"
+      );
+      $stmt->execute([
+        $edif_apto,
+        $nombres_apellidos,
+        $cedula_digits,
+        $codigo ?: null,
+        $telefono ?: null,
+        null,null,0,0,0,
+        $deuda_extra
+      ]);
+    }
     header('Location:index.php?saved=1'); exit;
   }catch(PDOException $ex){
     $_SESSION['errors']=[ "No se pudo guardar: ".$ex->getMessage() ];
@@ -373,6 +393,7 @@ if ($action==='new' || $action==='pagar') {
     'monto_a_pagar'=>'0.00',
     'monto_pagado'=>'0.00',
     'deuda_extra'=>'0.00',
+    'deuda_inicial'=>'0.00',
     'no_recurrente'=>0
   ];
 
@@ -446,17 +467,10 @@ if ($action==='new' || $action==='pagar') {
         <input type="hidden" name="id" value="<?= (int)$data['id'] ?>">
       <?php endif; ?>
 
-      <input type="hidden" name="modo_deuda" id="modo_deuda" value="0">
-
       <!-- CARD DATOS -->
       <div class="card mb-3"><div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="card-title mb-0">Pagar / Crear recibo</h5>
-          <?php if ($editing): ?>
-            <button type="button" id="btnToggleDeuda" class="btn btn-outline-secondary btn-sm">
-              Añadir / editar deuda atrasada
-            </button>
-          <?php endif; ?>
         </div>
 
         <div class="row g-3">
@@ -518,37 +532,39 @@ if ($action==='new' || $action==='pagar') {
       </div></div>
 
       <!-- CARD DEUDA EXTRA -->
-      <div class="card mb-3 <?= $mostrar_card_deuda ? '' : 'd-none' ?>" id="cardDeudaExtra">
-        <div class="card-body">
-          <p class="text-muted mb-3">
-            Deuda registrada actualmente: <strong>RD$ <?= number_format($deuda_extra_db,2,'.',',') ?></strong>
-          </p>
+      <?php if ($mostrar_card_deuda): ?>
+        <div class="card mb-3" id="cardDeudaExtra">
+          <div class="card-body">
+            <p class="text-muted mb-3">
+              Deuda registrada actualmente: <strong>RD$ <?= number_format($deuda_extra_db,2,'.',',') ?></strong>
+            </p>
 
-          <div class="row g-3 align-items-end">
-            <div class="col-md-4">
-              <label class="form-label">Deuda restante (estimada)</label>
-              <input type="text" class="form-control"
-                     name="deuda_restante" id="deuda_restante"
-                     value="<?= $deuda_extra_fmt ?>" disabled>
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label">Deuda restante (solo lectura)</label>
+                <input type="text" class="form-control"
+                       name="deuda_restante" id="deuda_restante"
+                       value="<?= $deuda_extra_fmt ?>" disabled>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Monto a abonar ahora</label>
+                <input type="text" class="form-control"
+                       name="abono_deuda_extra" id="abono_deuda_extra"
+                       placeholder="0.00" value="">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Deuda estimada después de este pago</label>
+                <input type="text" class="form-control"
+                       id="deuda_despues"
+                       value="<?= $deuda_extra_fmt ?>" disabled>
+              </div>
             </div>
-            <div class="col-md-4">
-              <label class="form-label">Monto a abonar ahora</label>
-              <input type="text" class="form-control"
-                     name="abono_deuda_extra" id="abono_deuda_extra"
-                     placeholder="0.00" value="">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Deuda estimada después de este pago</label>
-              <input type="text" class="form-control"
-                     id="deuda_despues"
-                     value="<?= $deuda_extra_fmt ?>" disabled>
-            </div>
+
+            <input type="hidden" name="deuda_extra_actual" id="deuda_extra_actual"
+                   value="<?= $deuda_extra_fmt ?>">
           </div>
-
-          <input type="hidden" name="deuda_extra_actual" id="deuda_extra_actual"
-                 value="<?= $deuda_extra_fmt ?>">
         </div>
-      </div>
+      <?php endif; ?>
 
       <!-- CARD CUOTAS PENDIENTES -->
       <div class="card mb-3" id="cardCuotas"><div class="card-body">
