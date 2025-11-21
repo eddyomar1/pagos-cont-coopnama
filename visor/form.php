@@ -87,15 +87,15 @@ header_html($editing?'Editar residente':'Agregar residente');
 
     <?php if($hasDeudaInicial): ?>
       <hr class="my-4">
-      <div class="row g-3 align-items-start">
-        <div class="col-md-3 order-md-1">
+      <div class="row g-3 mt-2 justify-content-end align-items-start">
+        <div class="col-md-3 order-md-1 text-md-end">
           <label class="form-label">Deuda inicial</label>
           <input type="text" name="deuda_inicial" class="form-control"
                  placeholder="0.00"
                  value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>">
           <div class="form-text">Al crear un residente, este valor se copia a la deuda actual.</div>
         </div>
-        <div class="col-md-3 order-md-2">
+        <div class="col-md-3 order-md-2 text-md-end">
           <label class="form-label">Deuda actual</label>
           <input type="text" name="deuda_extra" class="form-control"
                  placeholder="0.00"
