@@ -18,6 +18,7 @@ $data=[
   'monto_pagado'=>'',
   'no_recurrente'=>0
 ];
+$hasDeudaInicial = defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL;
 
 if($editing){
   $id=(int)($_GET['id'] ?? 0);
@@ -84,29 +85,24 @@ header_html($editing?'Editar residente':'Agregar residente');
       </div>
     </div>
 
-    <div class="row g-3 mt-2">
-      <div class="col-md-3">
-        <label class="form-label">Deuda inicial</label>
-        <?php if($editing): ?>
-          <input type="text" class="form-control"
-                 value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>" disabled>
-          <input type="hidden" name="deuda_inicial"
-                 value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>">
-        <?php else: ?>
+    <?php if($hasDeudaInicial): ?>
+      <div class="row g-3 mt-2">
+        <div class="col-md-3">
+          <label class="form-label">Deuda inicial</label>
           <input type="text" name="deuda_inicial" class="form-control"
                  placeholder="0.00"
                  value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>">
-          <div class="form-text">Se guardará también como deuda pendiente actual.</div>
-        <?php endif; ?>
+          <div class="form-text">Al crear un residente, este valor se copia a la deuda actual.</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Deuda actual</label>
+          <input type="text" name="deuda_extra" class="form-control"
+                 placeholder="0.00"
+                 value="<?= e(number_format((float)$data['deuda_extra'],2,'.','')) ?>">
+          <div class="form-text">Úsalo para ajustar el balance pendiente.</div>
+        </div>
       </div>
-      <div class="col-md-3">
-        <label class="form-label">Deuda actual</label>
-        <input type="text" class="form-control"
-               value="<?= e(number_format((float)$data['deuda_extra'],2,'.','')) ?>" disabled>
-        <input type="hidden" name="deuda_extra"
-               value="<?= e(number_format((float)$data['deuda_extra'],2,'.','')) ?>">
-      </div>
-    </div>
+    <?php endif; ?>
 
     <div class="d-flex gap-2 mt-4">
       <button class="btn btn-primary"><?=$editing?'Actualizar':'Guardar'?></button>

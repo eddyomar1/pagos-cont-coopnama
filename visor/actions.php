@@ -73,6 +73,8 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $cedula_in         = body('cedula');
   $codigo            = body('codigo');
   $telefono          = body('telefono');
+  $deuda_inicial     = toDecimal(body('deuda_inicial')) ?? 0;
+  $deuda_extra       = toDecimal(body('deuda_extra')) ?? $deuda_inicial;
   $fecha_x_pagar     = toDateOrNull(body('fecha_x_pagar'));
   $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
   $mora              = toDecimal(body('mora')) ?? 0;
@@ -99,16 +101,31 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   }
 
   try{
-    $stmt=$pdo->prepare(
-      "UPDATE residentes SET
-        edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
-        fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
-       WHERE id=?"
-    );
-    $stmt->execute([
-      $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
-      $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente,$id
-    ]);
+    if (defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL) {
+      $stmt=$pdo->prepare(
+        "UPDATE residentes SET
+          edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
+          deuda_inicial=?, deuda_extra=?,
+          fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
+         WHERE id=?"
+      );
+      $stmt->execute([
+        $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
+        $deuda_inicial,$deuda_extra,
+        $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente,$id
+      ]);
+    } else {
+      $stmt=$pdo->prepare(
+        "UPDATE residentes SET
+          edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
+          fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
+         WHERE id=?"
+      );
+      $stmt->execute([
+        $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
+        $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente,$id
+      ]);
+    }
     header('Location:?action=full&updated=1'); exit;
   }catch(PDOException $ex){
     $_SESSION['errors']=[ "No se pudo actualizar: ".$ex->getCode() ];
