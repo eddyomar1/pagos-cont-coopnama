@@ -20,7 +20,6 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $errors=[];
   if(!required($edif_apto))         $errors[]="Edif/Apto es obligatorio.";
   if(!required($nombres_apellidos)) $errors[]="Nombres y Apellidos es obligatorio.";
-  if(!required($cedula_in))         $errors[]="Cédula es obligatoria.";
 
   $cedula_digits = digits_only($cedula_in);
   if($cedula_in && !cedula_valida($cedula_digits)) $errors[]="Cédula no válida.";
@@ -179,7 +178,6 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $errors=[];
   if(!required($edif_apto))         $errors[]="Edif/Apto es obligatorio.";
   if(!required($nombres_apellidos)) $errors[]="Nombres y Apellidos es obligatorio.";
-  if(!required($cedula_digits))     $errors[]="Cédula es obligatoria.";
   if($cedula_digits && !cedula_valida($cedula_digits)) $errors[]="Cédula no válida.";
   if(!$fecha_pagada) $errors[]='Debe indicar la fecha pagada.'; // SOLO en modo normal
 
@@ -485,7 +483,7 @@ if ($action==='new' || $action==='pagar') {
                    value="<?=e($data['nombres_apellidos'])?>" disabled>
           </div>
           <div class="col-md-2">
-            <label class="form-label">Cédula *</label>
+            <label class="form-label">Cédula</label>
             <input type="text" class="form-control"
                    value="<?=e(format_cedula($data['cedula']))?>" disabled>
           </div>
