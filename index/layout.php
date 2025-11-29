@@ -18,13 +18,13 @@ function render_header(string $title='Residentes', string $active='residentes'){
 </style>
 </head><body>
 <nav class="navbar navbar-expand-lg bg-white shadow-sm mb-3"><div class="container">
-  <a class="navbar-brand fw-bold" href="../contactos/index.php">COOPNAMA II</a>
+  <a class="navbar-brand fw-bold" href="/eo/coopnama/contactos/index.php">COOPNAMA II</a>
   <div class="ms-auto d-flex align-items-center gap-3 flex-wrap">
     <div class="nav nav-pills small">
-      <a class="nav-link <?php if ($active==='residentes') echo 'active'; ?>" href="../coopnama/contactos/index.php?page=residentes">Residentes</a>
-      <a class="nav-link <?php if ($active==='pagos') echo 'active'; ?>" href="../coopnama/contactos/index.php?page=pagos">Pagos</a>
-      <a class="nav-link" href="../coopnama/contactos/visor.php">Visor</a>
-      <a class="nav-link" href="../coopnama/automovilist/index.php">Vehículos</a>
+      <a class="nav-link <?php if ($active==='residentes') echo 'active'; ?>" href="/eo/coopnama/contactos/index.php?page=residentes">Residentes</a>
+      <a class="nav-link <?php if ($active==='pagos') echo 'active'; ?>" href="/eo/coopnama/contactos/index.php?page=pagos">Pagos</a>
+      <a class="nav-link" href="/eo/coopnama/contactos/visor.php">Visor</a>
+      <a class="nav-link" href="/eo/automovilist/index.php">Vehículos</a>
     </div>
   </div>
 </div></nav>
