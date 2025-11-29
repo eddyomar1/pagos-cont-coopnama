@@ -14,8 +14,20 @@ function render_header(string $title='Residentes', string $active='residentes'){
  .table thead th{font-weight:600}
  .table-nowrap td,
  .table-nowrap th{white-space:nowrap}
+ .nav-link.active{background:#0d6efd;color:#fff!important}
 </style>
 </head><body>
+<nav class="navbar navbar-expand-lg bg-white shadow-sm mb-3"><div class="container">
+  <a class="navbar-brand fw-bold" href="../coopnama/contactos/index.php">COOPNAMA II</a>
+  <div class="ms-auto d-flex align-items-center gap-3 flex-wrap">
+    <div class="nav nav-pills small">
+      <a class="nav-link <?php if ($active==='residentes') echo 'active'; ?>" href="../contactos/index.php?page=residentes">Residentes</a>
+      <a class="nav-link <?php if ($active==='pagos') echo 'active'; ?>" href="../contactos/index.php?page=pagos">Pagos</a>
+      <a class="nav-link" href="../contactos/visor.php">Visor</a>
+      <a class="nav-link" href="../automovilist/index.php">Vehículos</a>
+    </div>
+  </div>
+</div></nav>
 <main class="container my-4">
 <?php }
 
