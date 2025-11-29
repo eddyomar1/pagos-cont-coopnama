@@ -1,38 +1,108 @@
 <?php
 // index/layout.php – header/footer comunes
 
-function render_header(string $title='Residentes', string $active='residentes'){ ?>
+function render_header(string $title='Residentes', string $active='residentes'){
+  $action = $_GET['action'] ?? 'index';
+?>
 <!doctype html><html lang="es"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($title) ?></title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 <style>
- body{background:#f6f7fb}
+ :root{
+   --slate-100:#f4f6fb;
+   --slate-200:#eef1f7;
+   --slate-600:#2c3648;
+   --slate-700:#1f2c3d;
+ }
+ body{background:var(--slate-100);color:var(--slate-600);}
+ .app-shell{min-height:100vh;background:var(--slate-100);}
+ .sidebar{width:270px;background:#fff;border-right:1px solid #e7ebf3;box-shadow:6px 0 24px rgba(0,0,0,.04);}
+ .brand{font-weight:700;color:var(--slate-700);}
+ .brand small{color:#7a8596;}
+ .sidebar .section-label{letter-spacing:.05em;text-transform:uppercase;font-size:.78rem;font-weight:700;color:#808aa0;margin:1.1rem .35rem .4rem;}
+ .sidebar .nav-link{display:flex;align-items:center;gap:.65rem;color:#2d394c;border-radius:.75rem;padding:.65rem .8rem;font-weight:600;}
+ .sidebar .nav-link:hover{background:#f1f4ff;color:#0d6efd;}
+ .sidebar .nav-link.active{background:#0d6efd;color:#fff;box-shadow:0 10px 22px rgba(13,110,253,.2);}
+ .sidebar hr{margin:1.2rem 0;color:#eef1f6;}
+ .topbar{background:#fff;border-bottom:1px solid #e7ebf3;box-shadow:0 3px 18px rgba(0,0,0,.05);}
+ .page-heading h1{font-weight:700;color:var(--slate-700);margin-bottom:0;}
+ .page-heading .eyebrow{text-transform:uppercase;letter-spacing:.06em;color:#8a93a5;font-size:.75rem;font-weight:700;}
+ main.content-body{padding:24px;}
  .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
  .table thead th{font-weight:600}
  .table-nowrap td,
  .table-nowrap th{white-space:nowrap}
- .nav-link.active{background:#0d6efd;color:#fff!important}
 </style>
 </head><body>
-<nav class="navbar navbar-expand-lg bg-white shadow-sm mb-3"><div class="container">
-  <a class="navbar-brand fw-bold" href="/eo/coopnama/contactos/index.php">COOPNAMA II</a>
-  <div class="ms-auto d-flex align-items-center gap-3 flex-wrap">
-    <div class="nav nav-pills small">
-      <a class="nav-link <?php if ($active==='residentes') echo 'active'; ?>" href="/eo/coopnama/contactos/index.php?page=residentes">Residentes</a>
-      <a class="nav-link <?php if ($active==='pagos') echo 'active'; ?>" href="/eo/coopnama/contactos/index.php?page=pagos">Pagos</a>
-      <a class="nav-link" href="/eo/coopnama/contactos/visor.php">Visor</a>
-      <a class="nav-link" href="/eo/automovilist/index.php">Vehículos</a>
+<div class="app-shell d-flex">
+  <aside class="sidebar d-flex flex-column">
+    <div class="p-4 pb-3 border-bottom">
+      <div class="brand fs-5">COOPNAMA II</div>
+      <div class="text-muted small">Panel administrativo</div>
     </div>
-  </div>
-</div></nav>
-<main class="container my-4">
+    <div class="flex-grow-1 p-3">
+      <div class="section-label">Residentes</div>
+      <div class="nav flex-column">
+        <a class="nav-link <?= ($active==='residentes' && $action==='index')?'active':'' ?>" href="/eo/coopnama/contactos/index.php?page=residentes">
+          <i class="bi bi-card-checklist"></i><span>Listado y cobros</span>
+        </a>
+        <a class="nav-link <?= ($active==='residentes' && $action==='new')?'active':'' ?>" href="/eo/coopnama/contactos/index.php?action=new">
+          <i class="bi bi-person-plus"></i><span>Registrar residente</span>
+        </a>
+        <a class="nav-link <?= ($active==='visor')?'active':'' ?>" href="/eo/coopnama/contactos/visor.php?action=full">
+          <i class="bi bi-window-sidebar"></i><span>Visor completo</span>
+        </a>
+      </div>
+
+      <hr>
+
+      <div class="section-label">Pagos</div>
+      <div class="nav flex-column">
+        <a class="nav-link <?= ($active==='pagos')?'active':'' ?>" href="/eo/coopnama/contactos/index.php?page=pagos">
+          <i class="bi bi-currency-dollar"></i><span>Pagos registrados</span>
+        </a>
+      </div>
+
+      <hr>
+
+      <div class="section-label">Vehículos</div>
+      <div class="nav flex-column">
+        <a class="nav-link" href="/eo/automovilist/index.php">
+          <i class="bi bi-truck-front"></i><span>Registrar vehículo</span>
+        </a>
+      </div>
+    </div>
+    <div class="p-3 border-top text-muted small">
+      <i class="bi bi-info-circle me-1"></i>Atajos rápidos para navegar.
+    </div>
+  </aside>
+
+  <div class="content-area flex-grow-1 d-flex flex-column">
+    <div class="topbar px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="page-heading">
+        <div class="eyebrow">Panel administrativo</div>
+        <h1 class="h4 mb-0"><?= e($title) ?></h1>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/eo/coopnama/contactos/visor.php?action=full">
+          <i class="bi bi-layout-sidebar me-1"></i>Visor
+        </a>
+        <a href="/eo/coopnama/contactos/index.php?action=new" class="btn btn-primary btn-sm">
+          <i class="bi bi-plus-lg me-1"></i>Agregar
+        </a>
+      </div>
+    </div>
+    <main class="content-body flex-grow-1">
 <?php }
 
 function render_footer(){ ?>
-</main>
+    </main>
+  </div>
+</div>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
@@ -74,7 +144,6 @@ $(function(){
     $('#lenSelect').val(dt2.page.len());
   }
 
-  // Botón para mostrar / editar la deuda atrasada
   // === CUOTAS + DEUDA EXTRA ===
   var $moraInput = $('input[name="mora"]');
   var $montoPagarInput = $('input[name="monto_a_pagar"]');
@@ -187,119 +256,85 @@ $(function(){
     return year + '-' + String(month).padStart(2,'0') + '-' + day;
   }
 
+  function toggleNoDueMessage(){
+    if (!$noDueMessage.length || !$dueList.length) return;
+    if ($dueList.children().length){
+      $noDueMessage.addClass('d-none');
+    } else {
+      $noDueMessage.removeClass('d-none');
+    }
+  }
+
   function addSingleFutureDue(){
     if (!$nextFutureDue.length) return false;
     var nextDue = $nextFutureDue.val();
     if (!nextDue) return false;
     if (maxAdvances && advancesAdded >= maxAdvances) return false;
 
-    var idx = $('.due-option').length;
+    var idx = $('.due-option').length + advancesAdded;
     var label = formatDueLabel(nextDue);
-    var checkboxId = 'due' + idx;
+    var checkboxId = 'dueFuture' + idx;
     if ($dueList.length) {
-      var $col = $('<div>', { 'class': 'col' });
-      var $formCheck = $('<div>', { 'class': 'form-check' }).appendTo($col);
-      var $checkbox = $('<input>', {
-        'class': 'form-check-input due-option future-due',
+      var $col = $('<div>', { 'class': 'col future-due', 'data-date': nextDue });
+      var $check = $('<input>', {
+        'class': 'form-check-input due-option',
         type: 'checkbox',
         name: 'selected_dues[]',
         id: checkboxId,
         value: nextDue,
-        'data-label': label,
-        checked: true
-      }).appendTo($formCheck);
-      $('<label>', {
-        'class': 'form-check-label',
-        'for': checkboxId,
-        text: label
-      }).appendTo($formCheck);
+        checked: true,
+        'data-label': label
+      });
+      var $label = $('<label>', { 'class': 'form-check-label', 'for': checkboxId }).text(label);
+      $col.append(
+        $('<div>', { 'class': 'form-check' }).append($check, $label)
+      );
       $dueList.append($col);
-    }
-
-    $('#' + checkboxId).prop('checked', true);
-    if ($noDueMessage.length) {
-      $noDueMessage.addClass('d-none');
-    }
-
-    futureDueStack.push(nextDue);
-    advancesAdded += 1;
-    $nextFutureDue.val(addOneMonth(nextDue));
-
-    return true;
-  }
-
-  function addFutureDue(count){
-    count = parseInt(count, 10);
-    if (isNaN(count) || count < 1) count = 1;
-    var added = 0;
-    for (var i=0; i<count; i++){
-      if (!addSingleFutureDue()) break;
-      added++;
-    }
-    if (added > 0) {
+      futureDueStack.push({ id: checkboxId, date: nextDue });
+      advancesAdded += 1;
+      $nextFutureDue.val(addOneMonth(nextDue));
+      toggleNoDueMessage();
+      updateAdvanceControlsState();
       recalcDueSelection();
+      return true;
     }
-    updateAdvanceControlsState();
+    return false;
   }
 
   function removeSingleFutureDue(){
-    var $futureBoxes = $('.due-option.future-due');
-    if (!$futureBoxes.length) return false;
-    var $lastBox = $futureBoxes.last();
-    var removedDate = $lastBox.val();
-    var $col = $lastBox.closest('.col');
-    if ($col.length) {
-      $col.remove();
+    if (!futureDueStack.length) return false;
+    var last = futureDueStack.pop();
+
+    if (last.id) {
+      $('#'+last.id).closest('.col').remove();
     } else {
-      $lastBox.closest('.form-check').remove();
+      $('.future-due').last().closest('.col').remove();
     }
-    if (futureDueStack.length) {
-      var restored = futureDueStack.pop();
-      if ($nextFutureDue.length) {
-        $nextFutureDue.val(restored);
-      }
-    } else if ($nextFutureDue.length && removedDate) {
-      $nextFutureDue.val(removedDate);
-    }
+
     advancesAdded = Math.max(0, advancesAdded - 1);
-    if ($dueList.find('.due-option').length === 0 && $noDueMessage.length) {
+    $nextFutureDue.val(last.date);
+    toggleNoDueMessage();
+    updateAdvanceControlsState();
+    recalcDueSelection();
+
+    if (advancesAdded === 0 && $dueList.children().length === 0 && $noDueMessage.length){
       $noDueMessage.removeClass('d-none');
     }
-    recalcDueSelection();
     return true;
   }
 
-  function removeFutureDue(count){
-    count = parseInt(count, 10);
-    if (isNaN(count) || count < 1) count = 1;
-    var removed = 0;
-    for (var i=0; i<count; i++){
-      if (!removeSingleFutureDue()) break;
-      removed++;
-    }
-    if (removed > 0) {
-      updateAdvanceControlsState();
-    }
-  }
-
   if ($btnAdvancePlus.length) {
-    $btnAdvancePlus.on('click', function(){
-      addFutureDue(1);
-    });
+    $btnAdvancePlus.on('click', function(){ addSingleFutureDue(); });
   }
   if ($btnAdvanceMinus.length) {
-    $btnAdvanceMinus.on('click', function(){
-      removeFutureDue(1);
-    });
+    $btnAdvanceMinus.on('click', function(){ removeSingleFutureDue(); });
   }
-  updateAdvanceControlsState();
+  if ($nextFutureDue.length) {
+    updateAdvanceControlsState();
+  }
 
+  toggleNoDueMessage();
   recalcDueSelection();
-
-  $(document).on('click', '.btn-delete', function(e){
-    if (!confirm('¿Eliminar este registro?')) e.preventDefault();
-  });
-
 });
 </script>
 </body></html>
