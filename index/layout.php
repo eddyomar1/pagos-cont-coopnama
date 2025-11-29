@@ -1,8 +1,14 @@
 <?php
-// index/layout.php – header/footer comunes
+// index/layout.php – header/footer comunes con menú fijo unificado
 
 function render_header(string $title='Residentes', string $active='residentes'){
   $action = $_GET['action'] ?? 'index';
+  $isResList = ($active === 'residentes' && $action !== 'new');
+  $isResNew  = ($active === 'residentes' && $action === 'new');
+  $isVisor   = ($active === 'visor');
+  $isPagos   = ($active === 'pagos');
+  $isVehList = ($active === 'vehiculos' && $action !== 'new');
+  $isVehNew  = ($active === 'vehiculos' && $action === 'new');
 ?>
 <!doctype html><html lang="es"><head>
 <meta charset="utf-8">
@@ -13,96 +19,110 @@ function render_header(string $title='Residentes', string $active='residentes'){
 <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 <style>
  :root{
-   --slate-100:#f4f6fb;
-   --slate-200:#eef1f7;
-   --slate-600:#2c3648;
-   --slate-700:#1f2c3d;
+   --bg-body:#f8fafc;
+   --bg-sidebar:#ffffff;
+   --bg-topbar:#ffffff;
+   --primary:#2563eb;
+   --text-primary:#1e293b;
+   --text-secondary:#64748b;
+   --border:#e2e8f0;
+   --hover:#f1f5f9;
+   --shadow-sm:0 1px 3px rgba(0,0,0,0.1);
+   --shadow-md:0 4px 12px rgba(0,0,0,0.08);
+   --radius:12px;
  }
- body{background:var(--slate-100);color:var(--slate-600);}
- .app-shell{min-height:100vh;background:var(--slate-100);}
- .sidebar{width:270px;background:#fff;border-right:1px solid #e7ebf3;box-shadow:6px 0 24px rgba(0,0,0,.04);}
- .brand{font-weight:700;color:var(--slate-700);}
- .brand small{color:#7a8596;}
- .sidebar .section-label{letter-spacing:.05em;text-transform:uppercase;font-size:.78rem;font-weight:700;color:#808aa0;margin:1.1rem .35rem .4rem;}
- .sidebar .nav-link{display:flex;align-items:center;gap:.65rem;color:#2d394c;border-radius:.75rem;padding:.65rem .8rem;font-weight:600;}
- .sidebar .nav-link:hover{background:#f1f4ff;color:#0d6efd;}
- .sidebar .nav-link.active{background:#0d6efd;color:#fff;box-shadow:0 10px 22px rgba(13,110,253,.2);}
- .sidebar hr{margin:1.2rem 0;color:#eef1f6;}
- .topbar{background:#fff;border-bottom:1px solid #e7ebf3;box-shadow:0 3px 18px rgba(0,0,0,.05);}
- .page-heading h1{font-weight:700;color:var(--slate-700);margin-bottom:0;}
- .page-heading .eyebrow{text-transform:uppercase;letter-spacing:.06em;color:#8a93a5;font-size:.75rem;font-weight:700;}
- main.content-body{padding:24px;}
+ *{box-sizing:border-box;margin:0;padding:0;}
+ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg-body);color:var(--text-primary);}
+ .topbar{
+   height:64px;background:var(--bg-topbar);border-bottom:1px solid var(--border);
+   display:flex;align-items:center;justify-content:space-between;gap:16px;
+   padding:0 24px;position:fixed;top:0;left:0;right:0;z-index:1000;
+   box-shadow:var(--shadow-sm);font-size:20px;font-weight:600;
+ }
+ .topbar .brand{display:flex;align-items:center;gap:10px;}
+ .sidebar{
+   width:280px;background:var(--bg-sidebar);border-right:1px solid var(--border);
+   position:fixed;top:64px;left:0;bottom:0;padding:24px 16px;overflow-y:auto;
+   box-shadow:var(--shadow-md);
+ }
+ .section-title{
+   font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+   color:var(--text-secondary);margin:24px 12px 10px;
+ }
+ .menu-item{
+   display:flex;align-items:center;padding:12px 14px;margin:4px 8px;border-radius:var(--radius);
+   color:var(--text-primary);text-decoration:none;font-weight:500;transition:all .2s ease;
+ }
+ .menu-item:hover{background:var(--hover);transform:translateX(4px);}
+ .menu-item svg,.menu-item i{width:22px;height:22px;margin-right:14px;opacity:.8;flex-shrink:0;}
+ .menu-item:hover svg,.menu-item:hover i{opacity:1;}
+ .menu-item.active{background:var(--primary);color:#fff;box-shadow:var(--shadow-sm);transform:translateX(4px);}
+ .menu-item.active svg,.menu-item.active i{opacity:1;color:#fff;}
+ .content{margin-left:280px;padding:90px 40px 60px;min-height:100vh;}
+ .content-inner{max-width:1200px;margin:0 auto;}
+ hr{border:none;border-top:1px solid var(--border);margin:20px 12px;}
  .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
  .table thead th{font-weight:600}
- .table-nowrap td,
- .table-nowrap th{white-space:nowrap}
+ .table-nowrap td,.table-nowrap th{white-space:nowrap}
+ .actions-col{width:140px}
+ @media (max-width: 992px){
+   .sidebar{transform:translateX(-100%);}
+   .content{margin-left:0;padding:90px 20px 40px;}
+ }
 </style>
 </head><body>
-<div class="app-shell d-flex">
-  <aside class="sidebar d-flex flex-column">
-    <div class="p-4 pb-3 border-bottom">
-      <div class="brand fs-5">COOPNAMA II</div>
-      <div class="text-muted small">Panel administrativo</div>
-    </div>
-    <div class="flex-grow-1 p-3">
-      <div class="section-label">Residentes</div>
-      <div class="nav flex-column">
-        <a class="nav-link <?= ($active==='residentes' && $action==='index')?'active':'' ?>" href="/eo/coopnama/contactos/index.php?page=residentes">
-          <i class="bi bi-card-checklist"></i><span>Listado y cobros</span>
-        </a>
-        <a class="nav-link <?= ($active==='residentes' && $action==='new')?'active':'' ?>" href="/eo/coopnama/contactos/index.php?action=new">
-          <i class="bi bi-person-plus"></i><span>Registrar residente</span>
-        </a>
-        <a class="nav-link <?= ($active==='visor')?'active':'' ?>" href="/eo/coopnama/contactos/visor.php?action=full">
-          <i class="bi bi-window-sidebar"></i><span>Visor completo</span>
-        </a>
-      </div>
+<header class="topbar">
+  <div class="brand">Admin Parking</div>
+  <div class="d-flex align-items-center gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="/eo/coopnama/contactos/visor.php?action=full">
+      <i class="bi bi-window-sidebar me-1"></i>Visor
+    </a>
+    <a class="btn btn-primary btn-sm" href="/eo/coopnama/contactos/index.php?action=new">
+      <i class="bi bi-plus-lg me-1"></i>Agregar
+    </a>
+  </div>
+</header>
 
-      <hr>
+<nav class="sidebar">
+  <div class="section-title">Propietarios</div>
+  <a href="/eo/coopnama/contactos/index.php?action=new" class="menu-item <?= $isResNew?'active':'' ?>">
+    <i class="bi bi-person-plus"></i><span>Registrar residente</span>
+  </a>
+  <a href="/eo/coopnama/contactos/visor.php?action=full" class="menu-item <?= $isVisor?'active':'' ?>">
+    <i class="bi bi-card-checklist"></i><span>Visor completo</span>
+  </a>
 
-      <div class="section-label">Pagos</div>
-      <div class="nav flex-column">
-        <a class="nav-link <?= ($active==='pagos')?'active':'' ?>" href="/eo/coopnama/contactos/index.php?page=pagos">
-          <i class="bi bi-currency-dollar"></i><span>Pagos registrados</span>
-        </a>
-      </div>
+  <hr>
 
-      <hr>
+  <div class="section-title">Deudores</div>
+  <a href="/eo/coopnama/contactos/index.php?page=residentes" class="menu-item <?= $isResList?'active':'' ?>">
+    <i class="bi bi-people"></i><span>Ver todos</span>
+  </a>
+  <a href="/eo/coopnama/contactos/index.php?page=pagos" class="menu-item <?= $isPagos?'active':'' ?>">
+    <i class="bi bi-check2-circle"></i><span>Pagados</span>
+  </a>
+  <a href="/eo/coopnama/contactos/visor.php?action=full" class="menu-item <?= (!$isResNew && !$isPagos && !$isVisor && $isResList)?'active':'' ?>">
+    <i class="bi bi-exclamation-circle"></i><span>Pendientes</span>
+  </a>
 
-      <div class="section-label">Vehículos</div>
-      <div class="nav flex-column">
-        <a class="nav-link" href="/eo/automovilist/index.php">
-          <i class="bi bi-truck-front"></i><span>Registrar vehículo</span>
-        </a>
-      </div>
-    </div>
-    <div class="p-3 border-top text-muted small">
-      <i class="bi bi-info-circle me-1"></i>Atajos rápidos para navegar.
-    </div>
-  </aside>
+  <hr>
 
-  <div class="content-area flex-grow-1 d-flex flex-column">
-    <div class="topbar px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-      <div class="page-heading">
-        <div class="eyebrow">Panel administrativo</div>
-        <h1 class="h4 mb-0"><?= e($title) ?></h1>
-      </div>
-      <div class="d-flex align-items-center gap-2">
-        <a class="btn btn-outline-secondary btn-sm" href="/eo/coopnama/contactos/visor.php?action=full">
-          <i class="bi bi-layout-sidebar me-1"></i>Visor
-        </a>
-        <a href="/eo/coopnama/contactos/index.php?action=new" class="btn btn-primary btn-sm">
-          <i class="bi bi-plus-lg me-1"></i>Agregar
-        </a>
-      </div>
-    </div>
-    <main class="content-body flex-grow-1">
+  <div class="section-title">Vehículos</div>
+  <a href="/eo/automovilist/index.php" class="menu-item <?= $isVehList?'active':'' ?>">
+    <i class="bi bi-car-front"></i><span>Listado de vehículos</span>
+  </a>
+  <a href="/eo/automovilist/insert.php" class="menu-item <?= $isVehNew?'active':'' ?>">
+    <i class="bi bi-plus-square"></i><span>Registrar vehículo</span>
+  </a>
+</nav>
+
+<main class="content">
+  <div class="content-inner">
 <?php }
 
 function render_footer(){ ?>
-    </main>
   </div>
-</div>
+</main>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
