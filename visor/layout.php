@@ -26,12 +26,12 @@ function header_html($title='Residentes'){ ?>
 </style>
 </head><body>
 <nav class="navbar navbar-expand-lg bg-white shadow-sm"><div class="container">
-  <a class="navbar-brand fw-bold" href="../coopnama/contactos/visor.php">COOPNAMA II — Visor</a>
+  <a class="navbar-brand fw-bold" href="../contactos/visor.php">COOPNAMA II — Visor</a>
   <div class="ms-auto d-flex align-items-center gap-3 flex-wrap">
     <div class="nav nav-pills small">
-      <a class="nav-link" href="../contactos/index.php">Residentes</a>
-      <a class="nav-link active" href="../contactos/visor.php">Visor</a>
-      <a class="nav-link" href="../automovilist/index.php">Vehículos</a>
+      <a class="nav-link" href="../coopnama/contactos/index.php">Residentes</a>
+      <a class="nav-link active" href="../coopnama/contactos/visor.php">Visor</a>
+      <a class="nav-link" href="../coopnama/automovilist/index.php">Vehículos</a>
     </div>
     <a href="?action=new" class="btn btn-primary btn-sm ">Agregar</a>
   </div>
