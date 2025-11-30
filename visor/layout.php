@@ -81,20 +81,17 @@ function header_html($title='Residentes'){
     <i class="bi bi-person-plus"></i><span>Registrar residente</span>
   </a>
   <a class="menu-item <?= $isVisor?'active':'' ?>" href="?action=full">
-    <i class="bi bi-card-checklist"></i><span>Visor completo</span>
+    <i class="bi bi-card-checklist"></i><span>Registro</span>
   </a>
 
   <hr>
 
   <div class="section-title">Deudores</div>
   <a class="menu-item <?= $isResList?'active':'' ?>" href="/eo/coopnama/contactos/index.php?page=residentes">
-    <i class="bi bi-people"></i><span>Ver todos</span>
+    <i class="bi bi-people"></i><span>Pagos</span>
   </a>
   <a class="menu-item" href="/eo/coopnama/contactos/index.php?page=pagos">
-    <i class="bi bi-check2-circle"></i><span>Pagados</span>
-  </a>
-  <a class="menu-item <?= $isVisor?'active':'' ?>" href="?action=full">
-    <i class="bi bi-exclamation-circle"></i><span>Pendientes</span>
+    <i class="bi bi-check2-circle"></i><span>Registro de pagos</span>
   </a>
 
   <hr>
