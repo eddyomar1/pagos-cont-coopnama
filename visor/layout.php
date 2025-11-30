@@ -72,15 +72,7 @@ function header_html($title='Residentes'){
 </style>
 </head><body>
 <header class="topbar">
-  <div class="brand">Admin Parking</div>
-  <div class="d-flex align-items-center gap-2">
-    <a class="btn btn-outline-secondary btn-sm" href="/eo/coopnama/contactos/index.php?page=residentes">
-      <i class="bi bi-people me-1"></i>Residentes
-    </a>
-    <a href="?action=new" class="btn btn-primary btn-sm">
-      <i class="bi bi-plus-lg me-1"></i>Agregar
-    </a>
-  </div>
+  <div class="brand">COOPNAMA II</div>
 </header>
 
 <nav class="sidebar">

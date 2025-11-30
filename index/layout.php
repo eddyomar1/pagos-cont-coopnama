@@ -72,15 +72,7 @@ function render_header(string $title='Residentes', string $active='residentes'){
 </style>
 </head><body>
 <header class="topbar">
-  <div class="brand">Admin Parking</div>
-  <div class="d-flex align-items-center gap-2">
-    <a class="btn btn-outline-secondary btn-sm" href="/eo/coopnama/contactos/visor.php?action=full">
-      <i class="bi bi-window-sidebar me-1"></i>Visor
-    </a>
-    <a class="btn btn-primary btn-sm" href="/eo/coopnama/contactos/index.php?action=new">
-      <i class="bi bi-plus-lg me-1"></i>Agregar
-    </a>
-  </div>
+  <div class="brand">COOPNAMA II</div>
 </header>
 
 <nav class="sidebar">
