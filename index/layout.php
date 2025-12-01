@@ -9,6 +9,7 @@ function render_header(string $title='Residentes', string $active='residentes'){
   $isPagos   = ($active === 'pagos');
   $isVehList = ($active === 'vehiculos' && $action !== 'new');
   $isVehNew  = ($active === 'vehiculos' && $action === 'new');
+  $isSupport = ($active === 'support');
 ?>
 <!doctype html><html lang="es"><head>
 <meta charset="utf-8">
@@ -99,6 +100,13 @@ function render_header(string $title='Residentes', string $active='residentes'){
   </a>
   <a href="/eo/automovilist/insert.php" class="menu-item <?= $isVehNew?'active':'' ?>">
     <i class="bi bi-plus-square"></i><span>Registrar vehículo</span>
+  </a>
+
+  <hr>
+
+  <div class="section-title">Soporte</div>
+  <a class="menu-item <?= $isSupport?'active':'' ?>" href="/eo/automovilist/reporte_inconveniente.php">
+    <i class="bi bi-life-preserver"></i><span>Reportar inconveniente</span>
   </a>
 </nav>
 

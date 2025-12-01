@@ -5,6 +5,7 @@ function header_html($title='Residentes'){
   $isResNew  = ($viewAction === 'new' || $viewAction === 'edit');
   $isVisor   = ($viewAction === 'full');
   $isResList = !$isVisor && !$isResNew;
+  $isSupport = ($viewAction === 'support');
 ?>
 <!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -102,6 +103,13 @@ function header_html($title='Residentes'){
   </a>
   <a class="menu-item" href="/eo/automovilist/index.php">
     <i class="bi bi-car-front"></i><span>Listado de vehículos</span>
+  </a>
+
+  <hr>
+
+  <div class="section-title">Soporte</div>
+  <a class="menu-item <?= $isSupport?'active':'' ?>" href="/eo/automovilist/reporte_inconveniente.php">
+    <i class="bi bi-life-preserver"></i><span>Reportar inconveniente</span>
   </a>
 </nav>
 
