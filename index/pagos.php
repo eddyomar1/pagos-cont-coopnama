@@ -14,6 +14,10 @@ $sql = "
   ORDER BY p.fecha_recibo DESC
 ";
 $rows = $pdo->query($sql)->fetchAll();
+$totalCobrado = 0.0;
+foreach($rows as $p){
+  $totalCobrado += (float)($p['total'] ?? 0);
+}
 $current_section = 'pagos';
 
 render_header('Pagos registrados','pagos');
@@ -45,7 +49,10 @@ render_header('Pagos registrados','pagos');
 <!-- CARD TABLA PAGOS -->
 <div class="card">
   <div class="card-body">
-    <h5 class="mb-3">Pagos registrados</h5>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+      <h5 class="mb-0">Pagos registrados</h5>
+      <div class="fw-semibold text-success">Total cobrado: RD$ <?= number_format($totalCobrado,2,'.',',') ?></div>
+    </div>
     <div class="table-responsive">
       <table id="tabla_pagos" class="table table-striped table-bordered align-middle table-nowrap">
         <thead class="table-light">
