@@ -24,6 +24,7 @@ function body($k,$d=''){ return isset($_POST[$k]) ? trim($_POST[$k]) : $d; }
 function required($v){ return isset($v) && trim((string)$v) !== ''; }
 function digits_only($s){ return preg_replace('/\D+/','',$s); }
 function format_cedula($d){ $d=digits_only($d); return strlen($d)===11?substr($d,0,3).'-'.substr($d,3,7).'-'.substr($d,10,1):$d; }
+function is_ymd($d){ return (bool)preg_match('~^\d{4}-\d{2}-\d{2}$~',(string)$d); }
 function cedula_valida($digits){
   $d = digits_only($digits); if(strlen($d)!==11) return false;
   $m=[1,2,1,2,1,2,1,2,1,2]; $s=0;
@@ -72,3 +73,46 @@ function ensure_deuda_inicial_column(PDO $pdo): bool{
 $action = $_GET['action'] ?? 'full';
 
 ensure_deuda_inicial_column($pdo);
+
+// Config de cuotas (coincide con la app principal)
+if (!defined('BASE_DUE')) {
+  define('BASE_DUE', '2025-10-25');
+}
+if (!defined('CUOTA_MONTO')) {
+  define('CUOTA_MONTO', 1000.00);
+}
+
+/**
+ * Cuotas pendientes desde BASE_DUE hasta el último 25 ya vencido.
+ * Copia ligera de la lógica principal para no duplicar includes.
+ */
+function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $base): array{
+  $st = $pdo->prepare("SELECT meses_pagados FROM pagos_residentes WHERE residente_id = ?");
+  $st->execute([$residenteId]);
+  $pagados = [];
+  while($row = $st->fetch()){
+    $arr = json_decode($row['meses_pagados'] ?? '[]', true);
+    if (!is_array($arr)) continue;
+    foreach($arr as $d){
+      if (is_ymd($d)) $pagados[$d] = true;
+    }
+  }
+
+  $hoy = new DateTime('today');
+  $ultimo_venc = new DateTime($hoy->format('Y-m-25'));
+  if ($hoy < $ultimo_venc) {
+    $ultimo_venc->modify('-1 month');
+  }
+
+  $inicio = new DateTime($base);
+  if ($inicio > $ultimo_venc) return [];
+
+  $pendientes = [];
+  for ($d = clone $inicio; $d <= $ultimo_venc; $d->modify('+1 month')) {
+    $ymd = $d->format('Y-m-d');
+    if (!isset($pagados[$ymd])) {
+      $pendientes[] = $ymd;
+    }
+  }
+  return $pendientes;
+}

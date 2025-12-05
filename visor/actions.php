@@ -1,6 +1,48 @@
 <?php
 /*********** 3) Acciones CRUD (store/update/delete) ***********/
 
+// EXONERAR CUOTAS PENDIENTES
+if ($action === 'exonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
+  $id = (int) body('id');
+  if ($id <= 0) {
+    header('Location:?action=full'); exit;
+  }
+
+  $pendientes = cuotas_pendientes_residente_local($pdo, $id, BASE_DUE);
+  $fechaHoy = date('Y-m-d');
+
+  try{
+    $pdo->beginTransaction();
+
+    // Registrar un pago con monto 0 para marcar meses como exonerados
+    $stmt = $pdo->prepare(
+      "INSERT INTO pagos_residentes
+       (residente_id, fecha_recibo, fecha_pagada, meses_pagados, monto_base, mora, total, observaciones)
+       VALUES (?,?,?,?,?,?,?,?)"
+    );
+    $stmt->execute([
+      $id,
+      date('Y-m-d H:i:s'),
+      $fechaHoy,
+      json_encode($pendientes, JSON_UNESCAPED_UNICODE),
+      0, 0, 0,
+      'Exoneración manual desde visor'
+    ]);
+
+    // Limpiar montos y moras en la tabla principal
+    $pdo->prepare(
+      "UPDATE residentes SET fecha_pagada=?, mora=0, monto_a_pagar=0, monto_pagado=0, deuda_extra=0 WHERE id=?"
+    )->execute([$fechaHoy, $id]);
+
+    $pdo->commit();
+    header('Location:?action=full&exonerado=1'); exit;
+  }catch(PDOException $ex){
+    $pdo->rollBack();
+    $_SESSION['errors'] = ['No se pudo exonerar: '.$ex->getMessage()];
+    header('Location:?action=full'); exit;
+  }
+}
+
 // CREATE
 if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $edif_apto         = body('edif_apto');

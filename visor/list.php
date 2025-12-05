@@ -19,6 +19,11 @@ $fieldsToCheck = [
 if(isset($_GET['saved']))   echo '<div class="alert alert-success">Registro agregado.</div>';
 if(isset($_GET['updated'])) echo '<div class="alert alert-info">Registro actualizado.</div>';
 if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro eliminado.</div>';
+if(isset($_GET['exonerado'])) echo '<div class="alert alert-success">Deudas pendientes exoneradas para el residente seleccionado.</div>';
+if(!empty($_SESSION['errors'] ?? [])){
+  echo '<div class="alert alert-danger">'.implode('<br>', array_map('e', $_SESSION['errors'])).'</div>';
+  unset($_SESSION['errors']);
+}
 ?>
 <div class="card"><div class="card-body">
   <div class="table-responsive">
@@ -69,6 +74,13 @@ if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro elim
             <div class="actions d-inline-flex gap-1">
               <a class="btn btn-warning btn-sm" href="?action=edit&id=<?= (int)$r['id'] ?>">Editar</a>
               <a class="btn btn-danger btn-sm btn-delete" href="?action=delete&id=<?= (int)$r['id'] ?>">Eliminar</a>
+              <form method="post" action="?action=exonerar" class="d-inline-flex align-items-center gap-2 exonerar-form">
+                <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                <div class="form-check m-0">
+                  <input class="form-check-input exonerar-check" type="checkbox" aria-label="Confirmar exoneración">
+                </div>
+                <button type="submit" class="btn btn-outline-danger btn-sm">Exonerar</button>
+              </form>
             </div>
           </td>
         </tr>
@@ -77,5 +89,21 @@ if(isset($_GET['deleted'])) echo '<div class="alert alert-warning">Registro elim
     </table>
   </div>
 </div></div>
+<script>
+$(function(){
+  $('.exonerar-form').on('submit', function(e){
+    var $form = $(this);
+    var check = $form.find('.exonerar-check').get(0);
+    if(!check || !check.checked){
+      e.preventDefault();
+      alert('Marca la casilla para confirmar la exoneración de todas las mensualidades pendientes.');
+      return;
+    }
+    if(!confirm('Esto exonerará todas las mensualidades pendientes, incluida la actual si ya es día de pago. ¿Deseas continuar?')){
+      e.preventDefault();
+    }
+  });
+});
+</script>
 <?php
 footer_html();
