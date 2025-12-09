@@ -69,10 +69,45 @@ function ensure_deuda_inicial_column(PDO $pdo): bool{
   return $exists;
 }
 
+/**
+ * Asegura columnas de exoneración en residentes (crea si faltan).
+ */
+function ensure_exonerado_columns(PDO $pdo): bool{
+  static $checked = false;
+  static $ok      = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'exonerado'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN exonerado TINYINT(1) NOT NULL DEFAULT 0 AFTER no_recurrente");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+  }
+
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'exonerado_desde'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN exonerado_desde DATETIME NULL DEFAULT NULL AFTER exonerado");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+  }
+
+  if (!defined('HAS_EXONERADO')) {
+    define('HAS_EXONERADO', $ok);
+  }
+  return $ok;
+}
+
 /* Routing */
 $action = $_GET['action'] ?? 'full';
 
 ensure_deuda_inicial_column($pdo);
+ensure_exonerado_columns($pdo);
 
 // Config de cuotas (coincide con la app principal)
 if (!defined('BASE_DUE')) {
@@ -87,6 +122,18 @@ if (!defined('CUOTA_MONTO')) {
  * Copia ligera de la lógica principal para no duplicar includes.
  */
 function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $base): array{
+  // Detener cálculo si está exonerado
+  try{
+    $chk = $pdo->prepare("SELECT exonerado FROM residentes WHERE id = ? LIMIT 1");
+    $chk->execute([$residenteId]);
+    $ex = $chk->fetchColumn();
+    if ($ex) {
+      return [];
+    }
+  }catch(Throwable $e){
+    // fallback a cálculo normal
+  }
+
   $st = $pdo->prepare("SELECT meses_pagados FROM pagos_residentes WHERE residente_id = ?");
   $st->execute([$residenteId]);
   $pagados = [];

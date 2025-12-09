@@ -16,7 +16,9 @@ $data=[
   'mora'=>'',
   'monto_a_pagar'=>'',
   'monto_pagado'=>'',
-  'no_recurrente'=>0
+  'no_recurrente'=>0,
+  'exonerado'=>0,
+  'exonerado_desde'=>null
 ];
 $hasDeudaInicial = defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL;
 
@@ -42,6 +44,8 @@ $pendientes = [];
 if ($editing && !empty($data['id'])) {
   $pendientes = cuotas_pendientes_residente_local($pdo, (int)$data['id'], BASE_DUE);
 }
+$exonerado = $editing && !empty($data['exonerado']);
+$exoneradoDesde = $exonerado && !empty($data['exonerado_desde']) ? $data['exonerado_desde'] : null;
 
 header_html($editing?'Editar residente':'Agregar residente');
 ?>
@@ -53,6 +57,10 @@ header_html($editing?'Editar residente':'Agregar residente');
       <ul class="mb-0">
         <?php foreach($errors as $m) echo "<li>".e($m)."</li>"; ?>
       </ul>
+    </div>
+  <?php elseif(isset($_GET['desexonerado'])): ?>
+    <div class="alert alert-info mb-3">
+      La exoneración fue removida. Las próximas mensualidades se adeudarán normalmente.
     </div>
   <?php endif; ?>
 
@@ -114,30 +122,49 @@ header_html($editing?'Editar residente':'Agregar residente');
 
 <?php if($editing): ?>
 <div class="row justify-content-center mt-3"><div class="col-lg-10">
-  <div class="card border-danger-subtle">
-    <div class="card-body">
-      <h6 class="text-danger d-flex align-items-center gap-2 mb-2">
-        <i class="bi bi-exclamation-triangle-fill"></i> Exonerar mensualidades pendientes
-      </h6>
-      <p class="mb-3 text-muted small">
-        Esta acción marcará como pagadas todas las mensualidades pendientes (incluyendo la actual si ya es día de pago)
-        y limpiará mora/deuda extra. Se registrará un movimiento de pago en RD$ 0 como evidencia.
-        <?php if ($pendientes): ?>
-          <br><strong>Pendientes detectadas:</strong> <?= e(implode(', ', $pendientes)) ?>
-        <?php else: ?>
-          <br><strong>No hay mensualidades pendientes detectadas.</strong>
-        <?php endif; ?>
-      </p>
-      <form method="post" action="?action=exonerar" class="d-flex align-items-center gap-3 exonerar-form">
-        <input type="hidden" name="id" value="<?= (int)$data['id'] ?>">
-        <div class="form-check m-0">
-          <input class="form-check-input exonerar-check" type="checkbox" id="confirmExonera">
-          <label class="form-check-label" for="confirmExonera">Confirmo que quiero exonerar todas las mensualidades pendientes.</label>
-        </div>
-        <button type="submit" class="btn btn-outline-danger btn-sm">Exonerar ahora</button>
-      </form>
+  <?php if($exonerado): ?>
+    <div class="card border-success-subtle">
+      <div class="card-body">
+        <h6 class="text-success d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-check-circle-fill"></i> Residente exonerado
+        </h6>
+        <p class="mb-3 text-muted small">
+          Este contacto fue exonerado <?= $exoneradoDesde ? 'el '.e(date('d/m/Y H:i', strtotime($exoneradoDesde))) : 'recientemente' ?>.
+          No se generarán cargos hasta que reactivas la facturación.
+          Usa el botón para quitar la exoneración; las próximas mensualidades se adeudarán desde el siguiente ciclo.
+        </p>
+        <form method="post" action="?action=desexonerar" class="d-flex align-items-center gap-3 desexonerar-form">
+          <input type="hidden" name="id" value="<?= (int)$data['id'] ?>">
+          <button type="submit" class="btn btn-outline-secondary btn-sm">Quitar exoneración</button>
+        </form>
+      </div>
     </div>
-  </div>
+  <?php else: ?>
+    <div class="card border-danger-subtle">
+      <div class="card-body">
+        <h6 class="text-danger d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-exclamation-triangle-fill"></i> Exonerar mensualidades pendientes
+        </h6>
+        <p class="mb-3 text-muted small">
+          Esta acción marcará como pagadas todas las mensualidades pendientes (incluyendo la actual si ya es día de pago)
+          y limpiará mora/deuda extra. Se registrará un movimiento de pago en RD$ 0 como evidencia.
+          <?php if ($pendientes): ?>
+            <br><strong>Pendientes detectadas:</strong> <?= e(implode(', ', $pendientes)) ?>
+          <?php else: ?>
+            <br><strong>No hay mensualidades pendientes detectadas.</strong>
+          <?php endif; ?>
+        </p>
+        <form method="post" action="?action=exonerar" class="d-flex align-items-center gap-3 exonerar-form">
+          <input type="hidden" name="id" value="<?= (int)$data['id'] ?>">
+          <div class="form-check m-0">
+            <input class="form-check-input exonerar-check" type="checkbox" id="confirmExonera">
+            <label class="form-check-label" for="confirmExonera">Confirmo que quiero exonerar todas las mensualidades pendientes.</label>
+          </div>
+          <button type="submit" class="btn btn-outline-danger btn-sm">Exonerar ahora</button>
+        </form>
+      </div>
+    </div>
+  <?php endif; ?>
 </div></div>
 <script>
 $(function(){
@@ -150,6 +177,11 @@ $(function(){
       return;
     }
     if(!confirm('Esto exonerará todas las mensualidades pendientes, incluida la actual si ya es día de pago. ¿Deseas continuar?')){
+      e.preventDefault();
+    }
+  });
+  $('.desexonerar-form').on('submit', function(e){
+    if(!confirm('¿Quitar exoneración? Las próximas mensualidades se adeudarán normalmente.')){
       e.preventDefault();
     }
   });

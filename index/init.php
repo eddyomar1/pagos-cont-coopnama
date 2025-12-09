@@ -15,3 +15,4 @@ require __DIR__ . '/layout.php';
 
 // Asegura que la columna de deuda inicial exista antes de usarla
 ensure_deuda_inicial_column($pdo);
+ensure_exonerado_columns($pdo);

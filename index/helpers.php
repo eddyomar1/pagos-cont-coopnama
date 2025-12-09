@@ -83,6 +83,18 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
     $base = BASE_DUE;
   }
 
+  // Si está exonerado, no generar pendientes hasta que se reactive
+  try{
+    $chk = $pdo->prepare("SELECT exonerado FROM residentes WHERE id = ? LIMIT 1");
+    $chk->execute([$residenteId]);
+    $ex = $chk->fetchColumn();
+    if ($ex) {
+      return [];
+    }
+  }catch(Throwable $e){
+    // Si falla, continuamos con la lógica normal para no bloquear el flujo.
+  }
+
   // 1) Construir set de meses pagados (YYYY-MM-DD)
   $sql = "SELECT meses_pagados FROM pagos_residentes WHERE residente_id = ?";
   $st = $pdo->prepare($sql);
@@ -156,4 +168,40 @@ function ensure_deuda_inicial_column(PDO $pdo): bool{
     define('HAS_DEUDA_INICIAL', $exists);
   }
   return $exists;
+}
+
+/**
+ * Asegura columnas de exoneración (exonerado y exonerado_desde) en residentes.
+ */
+function ensure_exonerado_columns(PDO $pdo): bool{
+  static $checked = false;
+  static $ok      = false;
+  if ($checked) {
+    return $ok;
+  }
+
+  $checked = true;
+  $ok = true;
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'exonerado'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN exonerado TINYINT(1) NOT NULL DEFAULT 0 AFTER no_recurrente");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+  }
+
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'exonerado_desde'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN exonerado_desde DATETIME NULL DEFAULT NULL AFTER exonerado");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+  }
+
+  if (!defined('HAS_EXONERADO')) {
+    define('HAS_EXONERADO', $ok);
+  }
+  return $ok;
 }

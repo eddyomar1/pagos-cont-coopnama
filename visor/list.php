@@ -7,6 +7,7 @@ $columns = "id, cedula, codigo, edif_apto, nombres_apellidos, telefono";
 if ($hasDeudaInicial) {
   $columns .= ", deuda_inicial, deuda_extra";
 }
+$columns .= ", exonerado, exonerado_desde";
 $rows=$pdo->query("SELECT $columns FROM residentes ORDER BY id DESC")->fetchAll();
 $fieldsToCheck = [
   'cedula'            => 'Cédula',
@@ -64,6 +65,9 @@ if(!empty($_SESSION['errors'] ?? [])){
             <td>RD$ <?= e(number_format((float)($r['deuda_extra'] ?? 0),2,'.',',')) ?></td>
           <?php endif; ?>
           <td>
+            <?php if(!empty($r['exonerado'])): ?>
+              <span class="badge text-bg-info" title="Exonerado desde <?= e($r['exonerado_desde'] ?? '—') ?>">Exonerado</span>
+            <?php endif; ?>
             <?php if($hasMissing): ?>
               <span class="badge text-bg-warning" title="<?= e('Faltan: '.implode(', ', $missing)) ?>">Incompleto</span>
             <?php else: ?>

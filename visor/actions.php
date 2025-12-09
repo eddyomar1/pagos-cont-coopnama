@@ -10,6 +10,7 @@ if ($action === 'exonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
 
   $pendientes = cuotas_pendientes_residente_local($pdo, $id, BASE_DUE);
   $fechaHoy = date('Y-m-d');
+  $fechaAhora = date('Y-m-d H:i:s');
 
   try{
     $pdo->beginTransaction();
@@ -22,17 +23,19 @@ if ($action === 'exonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
     );
     $stmt->execute([
       $id,
-      date('Y-m-d H:i:s'),
+      $fechaAhora,
       $fechaHoy,
       json_encode($pendientes, JSON_UNESCAPED_UNICODE),
       0, 0, 0,
       'Exoneración manual desde visor'
     ]);
 
-    // Limpiar montos y moras en la tabla principal
+    // Limpiar montos y moras en la tabla principal y marcar exonerado
     $pdo->prepare(
-      "UPDATE residentes SET fecha_pagada=?, mora=0, monto_a_pagar=0, monto_pagado=0, deuda_extra=0 WHERE id=?"
-    )->execute([$fechaHoy, $id]);
+      "UPDATE residentes
+       SET fecha_pagada=?, mora=0, monto_a_pagar=0, monto_pagado=0, deuda_extra=0, exonerado=1, exonerado_desde=?
+       WHERE id=?"
+    )->execute([$fechaHoy, $fechaAhora, $id]);
 
     $pdo->commit();
     header('Location:?action=full&exonerado=1'); exit;
@@ -40,6 +43,23 @@ if ($action === 'exonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
     $pdo->rollBack();
     $_SESSION['errors'] = ['No se pudo exonerar: '.$ex->getMessage()];
     header('Location:?action=full'); exit;
+  }
+}
+
+// QUITAR EXONERACIÓN (reactivar cobros futuros)
+if ($action === 'desexonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
+  $id = (int) body('id');
+  if ($id <= 0) {
+    header('Location:?action=full'); exit;
+  }
+
+  try{
+    $stmt = $pdo->prepare("UPDATE residentes SET exonerado=0, exonerado_desde=NULL WHERE id=?");
+    $stmt->execute([$id]);
+    header('Location:?action=edit&id='.$id.'&desexonerado=1'); exit;
+  }catch(PDOException $ex){
+    $_SESSION['errors'] = ['No se pudo reactivar la facturación: '.$ex->getMessage()];
+    header('Location:?action=edit&id='.$id); exit;
   }
 }
 
