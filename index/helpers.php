@@ -36,6 +36,22 @@ function toDateOrNull($v){
   return null;
 }
 
+/**
+ * Logging sencillo para depurar errores en producción.
+ * Escribe en contactos/logs/app.log (crea la carpeta si falta).
+ */
+function app_log(string $message): void{
+  $dir = __DIR__ . '/../logs';
+  $file = $dir . '/app.log';
+  if (!is_dir($dir)) {
+    @mkdir($dir, 0777, true);
+  }
+  $timestamp = date('Y-m-d H:i:s');
+  $uri = $_SERVER['REQUEST_URI'] ?? '';
+  $line = "[$timestamp] $uri $message\n";
+  @file_put_contents($file, $line, FILE_APPEND);
+}
+
 function is_ymd($s){
   return is_string($s) && preg_match('~^\d{4}-\d{2}-\d{2}$~',$s);
 }

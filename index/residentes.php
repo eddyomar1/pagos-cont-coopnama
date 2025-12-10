@@ -228,6 +228,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     header('Location:index.php?updated=1'); exit;
 
   }catch(PDOException $ex){
+    app_log('Error creando pago/residente '.$id.': '.$ex->getMessage());
     $pdo->rollBack();
     $_SESSION['errors']=[
       "El pago se guardó en residente pero NO en pagos_residentes: ".$ex->getMessage()

@@ -3,17 +3,23 @@
 
 require __DIR__ . '/init.php';
 
-$sql = "
-  SELECT
-    p.*,
-    r.edif_apto,
-    r.nombres_apellidos,
-    r.cedula
-  FROM pagos_residentes p
-  LEFT JOIN residentes r ON r.id = p.residente_id
-  ORDER BY p.fecha_recibo DESC
-";
-$rows = $pdo->query($sql)->fetchAll();
+$rows = [];
+try{
+  $sql = "
+    SELECT
+      p.*,
+      r.edif_apto,
+      r.nombres_apellidos,
+      r.cedula
+    FROM pagos_residentes p
+    LEFT JOIN residentes r ON r.id = p.residente_id
+    ORDER BY p.fecha_recibo DESC
+  ";
+  $rows = $pdo->query($sql)->fetchAll();
+}catch(Throwable $e){
+  app_log('Error listando pagos: '.$e->getMessage());
+  $rows = [];
+}
 $totalCobrado = 0.0;
 foreach($rows as $p){
   $totalCobrado += (float)($p['total'] ?? 0);
