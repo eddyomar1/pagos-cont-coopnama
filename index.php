@@ -1,5 +1,5 @@
 <?php
-// index.php – router principal
+// index.php – router principal -
 
 require __DIR__ . '/index/init.php';
 
