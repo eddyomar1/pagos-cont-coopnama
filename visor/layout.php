@@ -129,7 +129,7 @@ $(function(){
   var $tbl=$('#tabla');
   if($tbl.length){
     $tbl.DataTable({
-      pageLength:10,
+      pageLength:100,
       lengthMenu:[5,10,25,50,100],
       language:{url:'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'},
       columnDefs:[{targets:-1, className:'text-center'}]
