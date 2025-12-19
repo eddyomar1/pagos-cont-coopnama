@@ -49,7 +49,7 @@ $exoneradoDesde = $exonerado && !empty($data['exonerado_desde']) ? $data['exoner
 
 header_html($editing?'Editar residente':'Agregar residente');
 ?>
-<div class="row justify-content-center"><div class="col-lg-10">
+<div class="row justify-content-center"><div class="col-12" style="max-width:1400px">
 <div class="card"><div class="card-body">
   <h5 class="card-title mb-3"><?=$editing?'Editar':'Agregar'?> residente</h5>
   <?php if($errors): ?>
@@ -102,7 +102,7 @@ header_html($editing?'Editar residente':'Agregar residente');
 <hr>
 
     <?php if($hasDeudaInicial): ?>
-      <hr class="my-4">
+      <hr class="my-4 border-2 border-primary opacity-75">
       <div class="row g-3 mt-2 justify-content-end align-items-start">
         <div class="col-md-3 order-md-1 text-md-end">
           <label class="form-label">Deuda inicial</label>
