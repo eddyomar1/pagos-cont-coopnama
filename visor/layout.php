@@ -7,6 +7,7 @@ function header_html($title='Residentes'){
   $isResList = !$isVisor && !$isResNew;
   $isSupport = ($viewAction === 'support');
   $isDev     = ($viewAction === 'dev');
+  $showDev   = isset($_GET['clave']) && $_GET['clave'] === DEV_ACCESS_KEY;
 ?>
 <!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -86,12 +87,13 @@ function header_html($title='Residentes'){
     <i class="bi bi-card-checklist"></i><span>Registro</span>
   </a>
 
-  <hr>
-
-  <div class="section-title">Dev</div>
-  <a class="menu-item <?= $isDev?'active':'' ?>" href="/eo/coopnama/contactos/visor/dev/pagos_duplicados.php?clave=<?= urlencode(DEV_ACCESS_KEY) ?>">
-    <i class="bi bi-tools"></i><span>Pagos duplicados</span>
-  </a>
+  <?php if($showDev): ?>
+    <hr>
+    <div class="section-title">Dev</div>
+    <a class="menu-item <?= $isDev?'active':'' ?>" href="/eo/coopnama/contactos/visor/dev/pagos_duplicados.php?clave=<?= urlencode(DEV_ACCESS_KEY) ?>">
+      <i class="bi bi-tools"></i><span>Pagos duplicados</span>
+    </a>
+  <?php endif; ?>
 
   <hr>
 
