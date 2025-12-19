@@ -70,7 +70,7 @@ header_html($editing?'Editar residente':'Agregar residente');
     <?php endif; ?>
 
     <div class="row g-3 align-items-end">
-      <div class="col-12 col-sm-6 col-lg-3">
+      <div class="col-12 col-sm-6 col-lg-2">
         <label class="form-label">Edif/Apto *</label>
         <input type="text" name="edif_apto" class="form-control" maxlength="60"
                value="<?=e($data['edif_apto'])?>" required>
