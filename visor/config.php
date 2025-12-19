@@ -19,6 +19,7 @@ try { $pdo = new PDO($dsn, $dbUser, $dbPass, $options); }
 catch(Throwable $e){ http_response_code(500); exit("DB error: ".htmlspecialchars($e->getMessage())); }
 
 /*********** 2) Helpers ***********/
+const DEV_ACCESS_KEY = 'coopnama-dev';
 function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 function body($k,$d=''){ return isset($_POST[$k]) ? trim($_POST[$k]) : $d; }
 function required($v){ return isset($v) && trim((string)$v) !== ''; }
