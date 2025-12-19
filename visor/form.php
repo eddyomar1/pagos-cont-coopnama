@@ -70,28 +70,28 @@ header_html($editing?'Editar residente':'Agregar residente');
     <?php endif; ?>
 
     <div class="row g-3">
-      <div class="col-md-3">
+      <div class="col-6 col-md-3">
         <label class="form-label">Edif/Apto *</label>
         <input type="text" name="edif_apto" class="form-control" maxlength="60"
                value="<?=e($data['edif_apto'])?>" required>
       </div>
-      <div class="col-md-5">
+      <div class="col-6 col-md-5">
         <label class="form-label">Nombres y Apellidos *</label>
         <input type="text" name="nombres_apellidos" class="form-control" maxlength="255"
                value="<?=e($data['nombres_apellidos'])?>" required>
       </div>
-      <div class="col-md-2">
+      <div class="col-6 col-md-2">
         <label class="form-label">Cédula</label>
         <input type="text" name="cedula" class="form-control" maxlength="13"
                placeholder="001-1234567-8"
                value="<?=e(format_cedula($data['cedula']))?>">
       </div>
-      <div class="col-md-2">
+      <div class="col-6 col-md-2">
         <label class="form-label">Código</label>
         <input type="text" name="codigo" class="form-control" maxlength="30"
                value="<?=e($data['codigo'])?>">
       </div>
-      <div class="col-md-3">
+      <div class="col-12 col-md-3">
         <label class="form-label">Teléfono</label>
         <input type="text" name="telefono" class="form-control" maxlength="50"
                value="<?=e($data['telefono'])?>">
