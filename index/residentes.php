@@ -320,7 +320,7 @@ if ($action === 'index') {
           <?php foreach($rows as $r): ?>
             <?php
               $idRes = (int)$r['id'];
-              // Cuotas pendientes según historial de pagos (día 25)
+              // Cuotas pendientes según historial de pagos (día configurable)
               $pendientesRes = cuotas_pendientes_residente($pdo, $idRes, BASE_DUE);
               $tiene_cuotas  = count($pendientesRes) > 0;
               $deuda_extra   = isset($r['deuda_extra']) ? (float)$r['deuda_extra'] : 0.0;
@@ -411,7 +411,7 @@ if ($action==='new' || $action==='pagar') {
 
   render_header($editing?'Pagar / Crear recibo':'Agregar residente','residentes');
 
-  // Cuotas pendientes según historial (día 25)
+  // Cuotas pendientes según historial (día configurable)
   $pendientes = $editing
     ? cuotas_pendientes_residente($pdo, (int)$data['id'], BASE_DUE)
     : [];
@@ -623,12 +623,12 @@ if ($action==='new' || $action==='pagar') {
               <?php endforeach; ?>
             </div>
             <div id="noDueMessage" class="alert alert-success mb-0 d-none">
-              No hay cuotas pendientes. Próximo vencimiento:
+              No hay cuotas pendientes. Próximo vencimiento (día <?= e(DUE_DAY) ?>):
               <strong><?= e(fecha_larga_es($proximo)) ?></strong>.
             </div>
           <?php else: ?>
             <div id="noDueMessage" class="alert alert-success mb-3">
-              No hay cuotas pendientes. Próximo vencimiento:
+              No hay cuotas pendientes. Próximo vencimiento (día <?= e(DUE_DAY) ?>):
               <strong><?= e(fecha_larga_es($proximo)) ?></strong>.
             </div>
             <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2" id="dueList"></div>

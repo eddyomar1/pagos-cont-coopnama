@@ -45,7 +45,9 @@ function is_ymd($s){ return is_string($s) && preg_match('~^\d{4}-\d{2}-\d{2}$~',
 function fecha_larga_es($ymd){
   static $meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   $ts = strtotime($ymd);
-  return '5 de '.$meses[(int)date('n',$ts)-1].' de '.date('Y',$ts);
+  if(!$ts) return $ymd;
+  $dia = date('j',$ts);
+  return $dia.' de '.$meses[(int)date('n',$ts)-1].' de '.date('Y',$ts);
 }
 
 /*********** 3) Layout ***********/

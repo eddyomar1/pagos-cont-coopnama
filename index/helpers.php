@@ -56,14 +56,14 @@ function is_ymd($s){
   return is_string($s) && preg_match('~^\d{4}-\d{2}-\d{2}$~',$s);
 }
 
-/* --- Helpers de vencimientos (día 25) --- */
+/* --- Helpers de vencimientos --- */
 
 function fecha_larga_es($ymd){
   static $meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   $ts = strtotime($ymd);
   if(!$ts) return $ymd;
-  // NOTA: ahora el vencimiento es el 25 de cada mes
-  return '25 de '.$meses[(int)date('n',$ts)-1].' de '.date('Y',$ts);
+  $dia = date('j', $ts);
+  return $dia.' de '.$meses[(int)date('n',$ts)-1].' de '.date('Y',$ts);
 }
 
 /**
