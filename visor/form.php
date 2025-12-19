@@ -98,6 +98,9 @@ header_html($editing?'Editar residente':'Agregar residente');
       </div>
     </div>
 
+
+<hr>
+
     <?php if($hasDeudaInicial): ?>
       <hr class="my-4">
       <div class="row g-3 mt-2 justify-content-end align-items-start">
