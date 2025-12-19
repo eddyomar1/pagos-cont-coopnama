@@ -275,26 +275,26 @@ if ($action === 'index') {
   <div class="card mb-3">
     <div class="card-body">
       <div class="row g-3 align-items-center">
-        <div class="col-lg-5 d-flex align-items-center gap-3 flex-wrap">
+        <div class="col-lg-5 d-flex align-items-center gap-2">
+          <span>Mostrar</span>
+          <select id="lenSelect" class="form-select form-select-sm" style="width:auto;">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+          </select>
+          <span class="text-muted">registros</span>
+        </div>
+        <div class="col-lg-7 d-flex align-items-center justify-content-lg-end gap-3 flex-wrap">
+          <div class="d-flex align-items-center gap-2">
+            <label for="globalSearch" class="mb-0">Buscar:</label>
+            <input id="globalSearch" type="search" class="form-control form-control-sm" placeholder="Buscar..." style="max-width:240px">
+          </div>
           <div class="btn-group" role="group" aria-label="Filtro pagos">
             <a class="btn btn-sm <?= $status==='pendientes'?'btn-primary':'btn-outline-primary' ?>" href="index.php?page=residentes&status=pendientes">Pendientes</a>
             <a class="btn btn-sm <?= $status==='pagados'?'btn-primary':'btn-outline-primary' ?>" href="index.php?page=residentes&status=pagados">Pagados</a>
           </div>
-          <div class="d-flex align-items-center gap-2">
-            <span>Mostrar</span>
-            <select id="lenSelect" class="form-select form-select-sm" style="width:auto;">
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100" selected>100</option>
-            </select>
-            <span class="text-muted">registros</span>
-          </div>
-        </div>
-        <div class="col-lg-7 d-flex align-items-center justify-content-lg-end gap-2">
-          <label for="globalSearch" class="mb-0">Buscar:</label>
-          <input id="globalSearch" type="search" class="form-control form-control-sm" placeholder="Buscar..." style="max-width:240px">
         </div>
       </div>
     </div>
