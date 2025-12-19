@@ -111,7 +111,10 @@ ensure_exonerado_columns($pdo);
 
 // Config de cuotas (coincide con la app principal)
 if (!defined('BASE_DUE')) {
-  define('BASE_DUE', '2025-10-25');
+  define('BASE_DUE', '2025-10-05');
+}
+if (!defined('DUE_DAY')) {
+  define('DUE_DAY', '05');
 }
 if (!defined('CUOTA_MONTO')) {
   define('CUOTA_MONTO', 1000.00);
@@ -141,25 +144,34 @@ function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $b
     $arr = json_decode($row['meses_pagados'] ?? '[]', true);
     if (!is_array($arr)) continue;
     foreach($arr as $d){
-      if (is_ymd($d)) $pagados[$d] = true;
+      if (is_ymd($d)) {
+        $pagados[align_due_day_local($d)] = true;
+      }
     }
   }
 
   $hoy = new DateTime('today');
-  $ultimo_venc = new DateTime($hoy->format('Y-m-25'));
+  $ultimo_venc = new DateTime($hoy->format('Y-m-' . DUE_DAY));
   if ($hoy < $ultimo_venc) {
     $ultimo_venc->modify('-1 month');
   }
 
   $inicio = new DateTime($base);
+  $inicio->setDate($inicio->format('Y'), $inicio->format('m'), (int)DUE_DAY);
   if ($inicio > $ultimo_venc) return [];
 
   $pendientes = [];
   for ($d = clone $inicio; $d <= $ultimo_venc; $d->modify('+1 month')) {
-    $ymd = $d->format('Y-m-d');
+    $ymd = $d->format('Y-m-' . DUE_DAY);
     if (!isset($pagados[$ymd])) {
       $pendientes[] = $ymd;
     }
   }
   return $pendientes;
+}
+
+// Normaliza fecha al día configurado
+function align_due_day_local(string $ymd): string{
+  if (!preg_match('~^(\d{4})-(\d{2})-(\d{2})$~', $ymd, $m)) return $ymd;
+  return $m[1].'-'.$m[2].'-'.DUE_DAY;
 }
