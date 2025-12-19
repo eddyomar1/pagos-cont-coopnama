@@ -334,8 +334,11 @@ if ($action === 'index') {
               $tiene_deuda_extra = $deuda_extra > 0.0001;
               $tiene_deuda = $tiene_cuotas || $tiene_deuda_extra;
 
-              if ($solo_deudores && !$tiene_deuda) {
-                continue; // no mostrar si estamos filtrando solo deudores
+              if ($status === 'pendientes' && !$tiene_deuda) {
+                continue; // solo mostrar deudores
+              }
+              if ($status === 'pagados' && $tiene_deuda) {
+                continue; // solo mostrar al día
               }
 
               if ($tiene_deuda) {
