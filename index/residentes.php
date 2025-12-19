@@ -161,7 +161,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $pendientes_totales = cuotas_pendientes_residente($pdo, $id, BASE_DUE);
   $cantidad_pendientes_totales = count($pendientes_totales);
   $mora_auto_raw = $cantidad_pendientes_totales > 0
-    ? $cantidad_pendientes_totales * CUOTA_MONTO * 0.02
+    ? $cantidad_pendientes_totales * CUOTA_MONTO * MORA_PCT
     : 0.0;
   $mora_manual = toDecimal(body('mora'));
   if ($mora_manual !== null) {
@@ -430,9 +430,9 @@ if ($action==='new' || $action==='pagar') {
     }
   }
 
-  // Mora automática (2% del total pendiente si hay atrasos)
+  // Mora automática según MORA_PCT si hay atrasos
   $total_pendiente_cuotas = $cantidad * CUOTA_MONTO;
-  $mora_auto = $cantidad > 0 ? $total_pendiente_cuotas * 0.02 : 0.0;
+  $mora_auto = $cantidad > 0 ? $total_pendiente_cuotas * MORA_PCT : 0.0;
   if (!$had_manual_mora) {
     $data['mora'] = number_format($mora_auto, 2, '.', '');
   }
