@@ -69,29 +69,29 @@ header_html($editing?'Editar residente':'Agregar residente');
       <input type="hidden" name="id" value="<?= (int)$data['id'] ?>">
     <?php endif; ?>
 
-    <div class="row g-3 align-items-end flex-lg-nowrap">
-      <div class="col-6 col-lg-auto" style="min-width:140px;max-width:180px;">
+    <div class="row g-3 align-items-end">
+      <div class="col-12 col-sm-6 col-lg-3">
         <label class="form-label">Edif/Apto *</label>
         <input type="text" name="edif_apto" class="form-control" maxlength="60"
                value="<?=e($data['edif_apto'])?>" required>
       </div>
-      <div class="col-12 col-lg">
+      <div class="col-12 col-sm-6 col-lg-4">
         <label class="form-label">Nombres y Apellidos *</label>
         <input type="text" name="nombres_apellidos" class="form-control" maxlength="255"
                value="<?=e($data['nombres_apellidos'])?>" required>
       </div>
-      <div class="col-6 col-lg-auto" style="min-width:170px;max-width:190px;">
+      <div class="col-12 col-sm-6 col-lg-2">
         <label class="form-label">Cédula</label>
         <input type="text" name="cedula" class="form-control" maxlength="13"
                placeholder="001-1234567-8"
                value="<?=e(format_cedula($data['cedula']))?>">
       </div>
-      <div class="col-6 col-lg-auto" style="min-width:140px;max-width:170px;">
+      <div class="col-12 col-sm-6 col-lg-2">
         <label class="form-label">Código</label>
         <input type="text" name="codigo" class="form-control" maxlength="30"
                value="<?=e($data['codigo'])?>">
       </div>
-      <div class="col-12 col-lg-auto" style="min-width:200px;max-width:240px;">
+      <div class="col-12 col-sm-6 col-lg-3">
         <label class="form-label">Teléfono</label>
         <input type="text" name="telefono" class="form-control" maxlength="50"
                value="<?=e($data['telefono'])?>">
