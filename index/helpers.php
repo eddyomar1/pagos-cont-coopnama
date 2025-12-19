@@ -75,12 +75,12 @@ function proximo_vencimiento($fecha_x_pagar = null){
   if (!empty($fecha_x_pagar) && preg_match('~^\d{4}-\d{2}-\d{2}$~', $fecha_x_pagar)) {
     $d = new DateTime($fecha_x_pagar);
     $d->modify('+1 month');
-    return $d->format('Y-m-d');
+    return $d->format('Y-m-05');
   }
 
-  // Comportamiento antiguo: calcular a partir de hoy el siguiente día 25
+  // Calcular a partir de hoy el siguiente día 5
   $hoy = new DateTime('today');
-  $venc = new DateTime($hoy->format('Y-m-25'));
+  $venc = new DateTime($hoy->format('Y-m-05'));
   if ($hoy >= $venc) {
     $venc->modify('+1 month');
   }
@@ -95,9 +95,23 @@ function proximo_vencimiento($fecha_x_pagar = null){
  * (incluyendo pagos adelantados).
  */
 function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=null){
-  if ($base === null) {
+  // Fecha base: preferimos la fecha_x_pagar del residente; si no, BASE_DUE.
+  try{
+    $stBase = $pdo->prepare("SELECT fecha_x_pagar FROM residentes WHERE id = ? LIMIT 1");
+    $stBase->execute([$residenteId]);
+    $fechaBaseRow = $stBase->fetchColumn();
+  }catch(Throwable $e){
+    $fechaBaseRow = null;
+  }
+  if ($fechaBaseRow && preg_match('~^\d{4}-\d{2}-\d{2}$~', (string)$fechaBaseRow)) {
+    $base = $fechaBaseRow;
+  } elseif ($base === null) {
     $base = BASE_DUE;
   }
+  // Forzamos día 5 para los vencimientos
+  $baseObj = new DateTime($base);
+  $baseObj->setDate($baseObj->format('Y'), $baseObj->format('m'), 5);
+  $base = $baseObj->format('Y-m-d');
 
   // Si está exonerado, no generar pendientes hasta que se reactive
   try{
@@ -130,9 +144,9 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
 
   // 2) Determinar último vencimiento (día 25) que ya pasó o es hoy
   $hoy = new DateTime('today');
-  $currentDue = new DateTime($hoy->format('Y-m-25'));
+  $currentDue = new DateTime($hoy->format('Y-m-05'));
   if ($hoy < $currentDue) {
-    // Todavía no se ha llegado al 25 de este mes -> último vencimiento fue el mes pasado
+    // Todavía no se ha llegado al 5 de este mes -> último vencimiento fue el mes pasado
     $ultimo_venc = (clone $currentDue)->modify('-1 month');
   } else {
     $ultimo_venc = $currentDue;
@@ -144,11 +158,11 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
     return [];
   }
 
-  // 3) Recorrer meses desde BASE_DUE hasta último vencimiento,
+  // 3) Recorrer meses desde BASE_DUE (o fecha_x_pagar) hasta último vencimiento,
   //    agregando solo los que NO estén pagados
   $pendientes = [];
   for ($d = clone $inicio; $d <= $ultimo_venc; $d->modify('+1 month')) {
-    $ymd = $d->format('Y-m-d'); // día 25 siempre (porque BASE_DUE está en 25)
+    $ymd = $d->format('Y-m-05'); // día 5 siempre
     if (!isset($pagados[$ymd])) {
       $pendientes[] = $ymd;
     }

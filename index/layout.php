@@ -136,7 +136,7 @@ $(function(){
   var $tbl1 = $('#tabla');
   if ($tbl1.length) {
     var dt1 = $tbl1.DataTable({
-      pageLength: 10,
+      pageLength: 100,
       lengthMenu: [5,10,25,50,100],
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
       dom: 'tip',
@@ -151,7 +151,7 @@ $(function(){
   var $tbl2 = $('#tabla_pagos');
   if ($tbl2.length) {
     var dt2 = $tbl2.DataTable({
-      pageLength: 10,
+      pageLength: 100,
       lengthMenu: [5,10,25,50,100],
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
       dom: 'tip',
@@ -166,7 +166,7 @@ $(function(){
   var $tblExo = $('#tabla_exonerados');
   if ($tblExo.length) {
     var dtExo = $tblExo.DataTable({
-      pageLength: 10,
+      pageLength: 100,
       lengthMenu: [5,10,25,50,100],
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
       dom: 'tip',

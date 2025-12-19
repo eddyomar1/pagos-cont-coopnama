@@ -16,6 +16,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $telefono          = body('telefono');
   $deuda_extra       = toDecimal(body('deuda_extra')) ?? 0;
   $deuda_inicial     = $deuda_extra;
+  $fecha_x_pagar     = date('Y-m-05'); // primer cobro en el mes de alta (día 5)
 
   $errors=[];
   if(!required($edif_apto))         $errors[]="Edif/Apto es obligatorio.";
@@ -44,7 +45,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
         $cedula_digits,
         $codigo ?: null,
         $telefono ?: null,
-        null,null,0,0,0,
+        $fecha_x_pagar,null,0,0,0,
         $deuda_inicial,
         $deuda_extra
       ]);
@@ -61,7 +62,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
         $cedula_digits,
         $codigo ?: null,
         $telefono ?: null,
-        null,null,0,0,0,
+        $fecha_x_pagar,null,0,0,0,
         $deuda_extra
       ]);
     }
@@ -259,15 +260,7 @@ if ($action === 'index') {
   render_header('Residentes','residentes');
   $rows = [];
   try{
-    if ($status === 'pagados') {
-      $stList = $pdo->prepare("SELECT * FROM residentes WHERE deuda_extra <= 0 ORDER BY id DESC");
-      $stList->execute();
-      $rows = $stList->fetchAll();
-    } else { // pendientes o cualquier otro valor
-      $stList = $pdo->prepare("SELECT * FROM residentes WHERE deuda_extra > 0 ORDER BY id DESC");
-      $stList->execute();
-      $rows = $stList->fetchAll();
-    }
+    $rows=$pdo->query("SELECT * FROM residentes ORDER BY id DESC")->fetchAll();
   }catch(Throwable $e){
     app_log('Error listando residentes '.$status.': '.$e->getMessage());
     $rows = [];
@@ -292,10 +285,10 @@ if ($action === 'index') {
           <span>Mostrar</span>
           <select id="lenSelect" class="form-select form-select-sm" style="width:auto;">
             <option value="5">5</option>
-            <option value="10" selected>10</option>
+            <option value="10">10</option>
             <option value="25">25</option>
             <option value="50">50</option>
-            <option value="100">100</option>
+            <option value="100" selected>100</option>
           </select>
           <span class="text-muted">registros</span>
         </div>

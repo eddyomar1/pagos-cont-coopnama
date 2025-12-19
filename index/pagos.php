@@ -37,10 +37,10 @@ render_header('Pagos registrados','pagos');
         <span>Mostrar</span>
         <select id="lenSelect" class="form-select form-select-sm" style="width:auto;">
           <option value="5">5</option>
-          <option value="10" selected>10</option>
+          <option value="10">10</option>
           <option value="25">25</option>
           <option value="50">50</option>
-          <option value="100">100</option>
+          <option value="100" selected>100</option>
         </select>
         <span class="text-muted">registros</span>
       </div>
