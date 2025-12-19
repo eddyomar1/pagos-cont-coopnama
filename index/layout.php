@@ -7,6 +7,7 @@ function render_header(string $title='Residentes', string $active='residentes'){
   $isResNew  = ($active === 'residentes' && $action === 'new');
   $isVisor   = ($active === 'visor');
   $isPagos   = ($active === 'pagos');
+  $isExoList = ($active === 'exonerados');
   $isVehList = ($active === 'vehiculos' && $action !== 'new');
   $isVehNew  = ($active === 'vehiculos' && $action === 'new');
   $isSupport = ($active === 'support');
@@ -91,6 +92,9 @@ function render_header(string $title='Residentes', string $active='residentes'){
   <a href="/eo/coopnama/contactos/index.php?page=pagos" class="menu-item <?= $isPagos?'active':'' ?>">
     <i class="bi bi-check2-circle"></i><span>Registro de pagos</span>
   </a>
+  <a href="/eo/coopnama/contactos/index.php?page=exonerados" class="menu-item <?= $isExoList?'active':'' ?>">
+    <i class="bi bi-shield-check"></i><span>Exonerados</span>
+  </a>
 
   <hr>
 
@@ -156,6 +160,20 @@ $(function(){
     $('#globalSearch').on('input', function(){ dt2.search(this.value).draw(); });
     $('#lenSelect').on('change', function(){ dt2.page.len(parseInt(this.value,10)).draw(); });
     $('#lenSelect').val(dt2.page.len());
+  }
+
+  // === DataTable EXONERADOS ===
+  var $tblExo = $('#tabla_exonerados');
+  if ($tblExo.length) {
+    var dtExo = $tblExo.DataTable({
+      pageLength: 10,
+      lengthMenu: [5,10,25,50,100],
+      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
+      dom: 'tip',
+      order: [[0,'desc']]
+    });
+    $('#globalSearch').on('input', function(){ dtExo.search(this.value).draw(); });
+    $('#lenSelect').on('change', function(){ dtExo.page.len(parseInt(this.value,10)).draw(); });
   }
 
   // === CUOTAS + DEUDA EXTRA ===

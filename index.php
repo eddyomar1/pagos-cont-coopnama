@@ -11,6 +11,10 @@ switch ($page) {
     require __DIR__ . '/index/pagos.php';
     break;
 
+  case 'exonerados':
+    require __DIR__ . '/index/exonerados.php';
+    break;
+
   case 'residentes':
   default:
     require __DIR__ . '/index/residentes.php';
