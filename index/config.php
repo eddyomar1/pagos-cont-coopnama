@@ -9,5 +9,5 @@ $dbPass = '3spWifiPruev@';
 
 // Fecha base a partir de la cual se cuentan las cuotas (día configurable)
 const BASE_DUE    = '2025-10-05'; // cámbiala aquí si necesitas
-const DUE_DAY     = '25';         // Día del mes en que vence la cuota (ej. '05', '25')
+const DUE_DAY     = '5';         // Día del mes en que vence la cuota (ej. '05', '25')
 const CUOTA_MONTO = 1000.00;      // RD$ por mes
