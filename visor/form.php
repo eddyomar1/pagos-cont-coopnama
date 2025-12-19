@@ -86,7 +86,7 @@ header_html($editing?'Editar residente':'Agregar residente');
                placeholder="001-1234567-8"
                value="<?=e(format_cedula($data['cedula']))?>">
       </div>
-      <div class="col-12 col-sm-6 col-lg-2">
+      <div class="col-12 col-sm-6 col-lg-1">
         <label class="form-label">Código</label>
         <input type="text" name="codigo" class="form-control" maxlength="30"
                value="<?=e($data['codigo'])?>">
