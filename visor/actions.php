@@ -54,8 +54,16 @@ if ($action === 'desexonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
   }
 
   try{
-    $stmt = $pdo->prepare("UPDATE residentes SET exonerado=0, exonerado_desde=NULL WHERE id=?");
-    $stmt->execute([$id]);
+    // Marcar exoneración removida y fijar fecha_pagada al último vencimiento anterior,
+    // para que el mes en curso se adeude nuevamente.
+    $fechaAnterior = (new DateTime('first day of this month'))->setDate(
+      (int)date('Y'),
+      (int)date('m'),
+      (int)DUE_DAY
+    )->modify('-1 month')->format('Y-m-d');
+
+    $stmt = $pdo->prepare("UPDATE residentes SET exonerado=0, exonerado_desde=NULL, fecha_pagada=? WHERE id=?");
+    $stmt->execute([$fechaAnterior, $id]);
     header('Location:?action=edit&id='.$id.'&desexonerado=1'); exit;
   }catch(PDOException $ex){
     $_SESSION['errors'] = ['No se pudo reactivar la facturación: '.$ex->getMessage()];
