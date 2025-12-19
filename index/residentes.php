@@ -252,13 +252,26 @@ if ($action === 'delete' && isset($_GET['id'])) {
 
 /* 5.1 Listado */
 if ($action === 'index') {
-  // Filtro: por defecto solo con deuda; ?filtro=todos para ver todos
-  $filtro = $_GET['filtro'] ?? 'pendientes';
-  $solo_deudores = ($filtro !== 'todos');
+  // Filtro por estado: pendientes (default) o pagados
+  $status = $_GET['status'] ?? 'pendientes';
 
   $current_section = 'residentes';
   render_header('Residentes','residentes');
-  $rows=$pdo->query("SELECT * FROM residentes ORDER BY id DESC")->fetchAll();
+  $rows = [];
+  try{
+    if ($status === 'pagados') {
+      $stList = $pdo->prepare("SELECT * FROM residentes WHERE deuda_extra <= 0 ORDER BY id DESC");
+      $stList->execute();
+      $rows = $stList->fetchAll();
+    } else { // pendientes o cualquier otro valor
+      $stList = $pdo->prepare("SELECT * FROM residentes WHERE deuda_extra > 0 ORDER BY id DESC");
+      $stList->execute();
+      $rows = $stList->fetchAll();
+    }
+  }catch(Throwable $e){
+    app_log('Error listando residentes '.$status.': '.$e->getMessage());
+    $rows = [];
+  }
 
   if(isset($_GET['saved']))   echo '<div class="alert alert-success">Registro agregado.</div>';
   if(isset($_GET['updated'])) echo '<div class="alert alert-info">Pago registrado.</div>';
@@ -269,6 +282,12 @@ if ($action === 'index') {
   <div class="card mb-3">
     <div class="card-body">
       <div class="row g-3 align-items-center">
+        <div class="col-md-6 d-flex align-items-center gap-2">
+          <div class="btn-group" role="group" aria-label="Filtro pagos">
+            <a class="btn btn-sm <?= $status==='pendientes'?'btn-primary':'btn-outline-primary' ?>" href="index.php?page=residentes&status=pendientes">Pendientes</a>
+            <a class="btn btn-sm <?= $status==='pagados'?'btn-primary':'btn-outline-primary' ?>" href="index.php?page=residentes&status=pagados">Pagados</a>
+          </div>
+        </div>
         <div class="col-md-6 d-flex align-items-center gap-2">
           <span>Mostrar</span>
           <select id="lenSelect" class="form-select form-select-sm" style="width:auto;">
