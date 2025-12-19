@@ -124,7 +124,7 @@ header_html($editing?'Editar residente':'Agregar residente');
 </div></div></div></div>
 
 <?php if($editing): ?>
-<div class="row justify-content-center mt-3"><div class="col-lg-10">
+<div class="row justify-content-center mt-3"><div class="col-12" style="max-width:1400px">
   <?php if($exonerado): ?>
     <div class="card border-success-subtle">
       <div class="card-body">
