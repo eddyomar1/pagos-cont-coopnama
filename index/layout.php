@@ -227,6 +227,15 @@ $(function(){
   $(document).on('input', '#abono_deuda_extra', recalcDueSelection);
   $(document).on('input', 'input[name="mora"]', recalcDueSelection);
 
+  // Evitar envíos duplicados en formularios con #btnSubmit
+  var $btnSubmit = $('#btnSubmit');
+  var $form = $btnSubmit.closest('form');
+  if ($btnSubmit.length && $form.length) {
+    $form.on('submit', function(){
+      $btnSubmit.prop('disabled', true).text('Enviando...');
+    });
+  }
+
   // === Adelantos (meses futuros) ===
   var $dueList = $('#dueList');
   var $noDueMessage = $('#noDueMessage');
