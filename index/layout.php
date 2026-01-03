@@ -98,16 +98,6 @@ function render_header(string $title='Residentes', string $active='residentes'){
 
   <hr>
 
-  <div class="section-title">Vehículos</div>
-  <a href="/eo/automovilist/index.php" class="menu-item <?= $isVehList?'active':'' ?>">
-    <i class="bi bi-car-front"></i><span>Listado de vehículos</span>
-  </a>
-  <a href="/eo/automovilist/insert.php" class="menu-item <?= $isVehNew?'active':'' ?>">
-    <i class="bi bi-plus-square"></i><span>Registrar vehículo</span>
-  </a>
-
-  <hr>
-
   <div class="section-title">Soporte</div>
   <a class="menu-item <?= $isSupport?'active':'' ?>" href="/eo/automovilist/reporte_inconveniente.php">
     <i class="bi bi-life-preserver"></i><span>Reportar inconveniente</span>
