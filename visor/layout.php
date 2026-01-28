@@ -6,7 +6,6 @@ function header_html($title='Residentes'){
   $isVisor   = ($viewAction === 'full');
   $isResList = !$isVisor && !$isResNew;
   $isSupport = ($viewAction === 'support');
-  $isKeys    = ($viewAction === 'keys');
   $isDev     = ($viewAction === 'dev');
   $showDev   = isset($_GET['clave']) && $_GET['clave'] === DEV_ACCESS_KEY;
 ?>
@@ -87,9 +86,6 @@ function header_html($title='Residentes'){
   <a class="menu-item <?= $isVisor?'active':'' ?>" href="?action=full">
     <i class="bi bi-card-checklist"></i><span>Registro</span>
   </a>
-  <a class="menu-item <?= $isKeys?'active':'' ?>" href="?action=keys">
-    <i class="bi bi-qr-code"></i><span>Llaves digitales</span>
-  </a>
 
   <?php if($showDev): ?>
     <hr>
@@ -119,7 +115,7 @@ function header_html($title='Residentes'){
     <i class="bi bi-car-front"></i><span>Listado de vehículos</span>
   </a> -->
 
-  <!-- <hr> -->
+  <hr>
 
   <div class="section-title">Soporte</div>
   <a class="menu-item <?= $isSupport?'active':'' ?>" href="/eo/automovilist/reporte_inconveniente.php">
