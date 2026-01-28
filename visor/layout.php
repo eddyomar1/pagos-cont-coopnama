@@ -107,14 +107,6 @@ function header_html($title='Residentes'){
 
   <hr>
 
-  <div class="section-title">Vehículos</div>
-  <a class="menu-item" href="/eo/automovilist/insert.php">
-    <i class="bi bi-plus-square"></i><span>Registrar vehículo</span>
-  </a>
-  <a class="menu-item" href="/eo/automovilist/index.php">
-    <i class="bi bi-car-front"></i><span>Listado de vehículos</span>
-  </a>
-
   <hr>
 
   <div class="section-title">Soporte</div>
