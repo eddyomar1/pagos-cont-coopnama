@@ -22,10 +22,6 @@ switch ($action) {
     require __DIR__ . '/visor/form.php';
     break;
 
-  case 'keys':
-    require __DIR__ . '/visor/llaves.php';
-    break;
-
   default:
     header('Location:?action=full');
     exit;
