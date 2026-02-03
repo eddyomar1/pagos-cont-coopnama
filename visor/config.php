@@ -104,11 +104,35 @@ function ensure_exonerado_columns(PDO $pdo): bool{
   return $ok;
 }
 
+/**
+ * Asegura columnas para anulación de pagos (tipo/anulado_de) en pagos_residentes.
+ */
+function ensure_pagos_anulacion_columns_local(PDO $pdo): bool{
+  $ok = true;
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'tipo'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN tipo ENUM('pago','anulacion') NOT NULL DEFAULT 'pago'");
+    }
+  }catch(Throwable $e){ $ok = false; }
+
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'anulado_de'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN anulado_de INT NULL DEFAULT NULL");
+      try { $pdo->exec("CREATE INDEX idx_pagos_anulado_de ON pagos_residentes(anulado_de)"); } catch(Throwable $e) {}
+    }
+  }catch(Throwable $e){ $ok = false; }
+
+  return $ok;
+}
+
 /* Routing */
 $action = $_GET['action'] ?? 'full';
 
 ensure_deuda_inicial_column($pdo);
 ensure_exonerado_columns($pdo);
+ensure_pagos_anulacion_columns_local($pdo);
 
 // Config de cuotas (coincide con la app principal)
 if (!defined('BASE_DUE')) {
@@ -138,15 +162,28 @@ function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $b
     // fallback a cálculo normal
   }
 
-  $st = $pdo->prepare("SELECT meses_pagados FROM pagos_residentes WHERE residente_id = ?");
-  $st->execute([$residenteId]);
-  $pagados = [];
+  // Compat: si tipo no existe, detectar anulación por total < 0
+  try{
+    $st = $pdo->prepare("SELECT meses_pagados, total, tipo FROM pagos_residentes WHERE residente_id = ?");
+    $st->execute([$residenteId]);
+  }catch(Throwable $e){
+    $st = $pdo->prepare("SELECT meses_pagados, total FROM pagos_residentes WHERE residente_id = ?");
+    $st->execute([$residenteId]);
+  }
+  $pagados = []; // ymd => int neto
   while($row = $st->fetch()){
     $arr = json_decode($row['meses_pagados'] ?? '[]', true);
     if (!is_array($arr)) continue;
+    $delta = 1;
+    if (isset($row['tipo']) && $row['tipo'] === 'anulacion') {
+      $delta = -1;
+    } elseif (isset($row['total']) && (float)$row['total'] < 0) {
+      $delta = -1;
+    }
     foreach($arr as $d){
       if (is_ymd($d)) {
-        $pagados[align_due_day_local($d)] = true;
+        $k = align_due_day_local($d);
+        $pagados[$k] = ($pagados[$k] ?? 0) + $delta;
       }
     }
   }
@@ -164,7 +201,7 @@ function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $b
   $pendientes = [];
   for ($d = clone $inicio; $d <= $ultimo_venc; $d->modify('+1 month')) {
     $ymd = $d->format('Y-m-' . DUE_DAY);
-    if (!isset($pagados[$ymd])) {
+    if (($pagados[$ymd] ?? 0) <= 0) {
       $pendientes[] = $ymd;
     }
   }

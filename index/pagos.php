@@ -3,6 +3,69 @@
 
 require __DIR__ . '/init.php';
 
+// Acción: anular un pago (crea un registro inverso)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'anular') {
+  $id = (int)($_POST['id'] ?? 0);
+  if ($id <= 0) {
+    header('Location: index.php?page=pagos&error=Pago%20inv%C3%A1lido'); exit;
+  }
+
+  try{
+    $pdo->beginTransaction();
+
+    // Bloquea el registro para evitar doble anulación simultánea
+    $st = $pdo->prepare("SELECT * FROM pagos_residentes WHERE id = ? FOR UPDATE");
+    $st->execute([$id]);
+    $orig = $st->fetch();
+    if (!$orig) {
+      throw new Exception('Pago no encontrado.');
+    }
+
+    $tipoOrig = $orig['tipo'] ?? 'pago';
+    if ($tipoOrig === 'anulacion' || (float)($orig['total'] ?? 0) < 0) {
+      throw new Exception('No se puede anular un registro de anulación.');
+    }
+
+    $stChk = $pdo->prepare("SELECT id FROM pagos_residentes WHERE anulado_de = ? LIMIT 1");
+    $stChk->execute([$id]);
+    if ($stChk->fetchColumn()) {
+      throw new Exception('Este pago ya fue anulado.');
+    }
+
+    $monto_base = -1 * (float)($orig['monto_base'] ?? 0);
+    $mora       = -1 * (float)($orig['mora'] ?? 0);
+    $total      = -1 * (float)($orig['total'] ?? 0);
+    $obsOrig    = trim((string)($orig['observaciones'] ?? ''));
+    $obsNew     = 'ANULACION de pago #'.$id.($obsOrig ? ' | Original: '.$obsOrig : '');
+
+    $ins = $pdo->prepare(
+      "INSERT INTO pagos_residentes
+       (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
+        monto_base, mora, total, observaciones, tipo, anulado_de)
+       VALUES (?,?,?,?,?,?,?,?, 'anulacion', ?)"
+    );
+    $ins->execute([
+      (int)$orig['residente_id'],
+      date('Y-m-d H:i:s'),
+      date('Y-m-d'),
+      $orig['meses_pagados'],
+      $monto_base,
+      $mora,
+      $total,
+      $obsNew,
+      $id,
+    ]);
+
+    $pdo->commit();
+    header('Location: index.php?page=pagos&anulado=1'); exit;
+  }catch(Throwable $e){
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    app_log('Error anulando pago '.$id.': '.$e->getMessage());
+    $msg = urlencode($e->getMessage());
+    header("Location: index.php?page=pagos&error={$msg}"); exit;
+  }
+}
+
 $rows = [];
 try{
   $sql = "
@@ -19,6 +82,14 @@ try{
 }catch(Throwable $e){
   app_log('Error listando pagos: '.$e->getMessage());
   $rows = [];
+}
+
+// Set de ids que ya fueron anulados (para deshabilitar botón)
+$anulados = [];
+foreach($rows as $p){
+  if (!empty($p['anulado_de'])) {
+    $anulados[(int)$p['anulado_de']] = true;
+  }
 }
 $totalCobrado = 0.0;
 foreach($rows as $p){
@@ -61,6 +132,12 @@ render_header('Pagos registrados','pagos');
       <h5 class="mb-0">Pagos registrados</h5>
       <div class="fw-semibold text-success">Total cobrado: RD$ <?= number_format($totalCobrado,2,'.',',') ?></div>
     </div>
+    <?php if(isset($_GET['anulado'])): ?>
+      <div class="alert alert-success">Pago anulado correctamente (se registró una operación inversa).</div>
+    <?php endif; ?>
+    <?php if(!empty($_GET['error'])): ?>
+      <div class="alert alert-danger"><?= e($_GET['error']) ?></div>
+    <?php endif; ?>
     <div class="table-responsive">
       <table id="tabla_pagos" class="table table-striped table-bordered align-middle table-nowrap">
         <thead class="table-light">
@@ -76,6 +153,7 @@ render_header('Pagos registrados','pagos');
             <th>Mora</th>
             <th>Total</th>
             <th>Obs.</th>
+            <th class="text-center">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -86,8 +164,12 @@ render_header('Pagos registrados','pagos');
             foreach($meses as $f){
               $meses_legibles[] = fecha_larga_es($f);
             }
+            $tipo = $p['tipo'] ?? 'pago';
+            $isAnulacion = ($tipo === 'anulacion') || ((float)($p['total'] ?? 0) < 0);
+            $isAnulado = !$isAnulacion && isset($anulados[(int)$p['id']]);
+            $rowClass = $isAnulacion ? 'table-danger' : '';
           ?>
-          <tr>
+          <tr class="<?= $rowClass ?>">
             <td><?= (int)$p['id'] ?></td>
             <td><?= e($p['fecha_recibo']) ?></td>
             <td><?= e($p['nombres_apellidos']) ?></td>
@@ -99,6 +181,19 @@ render_header('Pagos registrados','pagos');
             <td><?= number_format((float)$p['mora'],2,'.',',') ?></td>
             <td><?= number_format((float)$p['total'],2,'.',',') ?></td>
             <td><?= e($p['observaciones'] ?? '') ?></td>
+            <td class="text-center">
+              <?php if($isAnulacion): ?>
+                <span class="badge text-bg-danger">Anulación</span>
+              <?php elseif($isAnulado): ?>
+                <span class="badge text-bg-secondary">Anulado</span>
+              <?php else: ?>
+                <form method="post" action="index.php?page=pagos" onsubmit="return confirm('¿Anular este pago? Se creará un registro inverso y se ajustarán los totales.');" class="d-inline">
+                  <input type="hidden" name="accion" value="anular">
+                  <input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
+                  <button class="btn btn-sm btn-outline-danger">Anular</button>
+                </form>
+              <?php endif; ?>
+            </td>
           </tr>
         <?php endforeach; ?>
         </tbody>

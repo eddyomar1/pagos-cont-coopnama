@@ -131,20 +131,33 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
     // Si falla, continuamos con la lógica normal para no bloquear el flujo.
   }
 
-  // 1) Construir set de meses pagados (YYYY-MM-DUE_DAY)
-  $sql = "SELECT meses_pagados FROM pagos_residentes WHERE residente_id = ?";
-  $st = $pdo->prepare($sql);
-  $st->execute([$residenteId]);
+  // 1) Construir conteo neto de meses pagados (YYYY-MM-DUE_DAY)
+  //    - Un pago suma +1
+  //    - Una anulación resta -1
+  //    Compat: si la columna tipo no existe aún, caemos a detectar por total < 0.
+  try{
+    $st = $pdo->prepare("SELECT meses_pagados, total, tipo FROM pagos_residentes WHERE residente_id = ?");
+    $st->execute([$residenteId]);
+  }catch(Throwable $e){
+    $st = $pdo->prepare("SELECT meses_pagados, total FROM pagos_residentes WHERE residente_id = ?");
+    $st->execute([$residenteId]);
+  }
 
-  $pagados = [];
+  $pagados = []; // ymd => int (conteo neto)
   while($row = $st->fetch()){
     if (empty($row['meses_pagados'])) continue;
     $arr = json_decode($row['meses_pagados'], true);
     if (!is_array($arr)) continue;
+    $delta = 1;
+    if (isset($row['tipo']) && $row['tipo'] === 'anulacion') {
+      $delta = -1;
+    } elseif (isset($row['total']) && (float)$row['total'] < 0) {
+      $delta = -1;
+    }
     foreach($arr as $d){
       if (is_ymd($d)) {
         $norm = align_due_day($d);
-        $pagados[$norm] = true; // set (evitamos duplicados)
+        $pagados[$norm] = ($pagados[$norm] ?? 0) + $delta;
       }
     }
   }
@@ -170,7 +183,7 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
   $pendientes = [];
   for ($d = clone $inicio; $d <= $ultimo_venc; $d->modify('+1 month')) {
     $ymd = $d->format('Y-m-' . DUE_DAY); // día configurado siempre
-    if (!isset($pagados[$ymd])) {
+    if (($pagados[$ymd] ?? 0) <= 0) {
       $pendientes[] = $ymd;
     }
   }
@@ -240,5 +253,42 @@ function ensure_exonerado_columns(PDO $pdo): bool{
   if (!defined('HAS_EXONERADO')) {
     define('HAS_EXONERADO', $ok);
   }
+  return $ok;
+}
+
+/**
+ * Asegura columnas para anulación de pagos (tipo/anulado_de) en pagos_residentes.
+ * Esto permite crear un registro inverso y mantener historial sin borrar.
+ */
+function ensure_pagos_anulacion_columns(PDO $pdo): bool{
+  static $checked = false;
+  static $ok      = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'tipo'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN tipo ENUM('pago','anulacion') NOT NULL DEFAULT 'pago'");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+    app_log('No se pudo asegurar columna pagos_residentes.tipo: '.$e->getMessage());
+  }
+
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'anulado_de'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN anulado_de INT NULL DEFAULT NULL");
+      // Índice útil para buscar anulaciones rápido
+      try { $pdo->exec("CREATE INDEX idx_pagos_anulado_de ON pagos_residentes(anulado_de)"); } catch(Throwable $e) {}
+    }
+  }catch(Throwable $e){
+    $ok = false;
+    app_log('No se pudo asegurar columna pagos_residentes.anulado_de: '.$e->getMessage());
+  }
+
   return $ok;
 }
