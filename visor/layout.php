@@ -42,7 +42,16 @@ function header_html($title='Residentes'){
    width:280px;background:var(--bg-sidebar);border-right:1px solid var(--border);
    position:fixed;top:64px;left:0;bottom:0;padding:24px 16px;overflow-y:auto;
    box-shadow:var(--shadow-md);
+   transition:transform .2s ease-in-out;
+   z-index:950;
  }
+ .sidebar-backdrop{
+   position:fixed; top:64px; left:0; right:0; bottom:0;
+   background:rgba(15,23,42,.35);
+   display:none;
+   z-index:900;
+ }
+ body.sidebar-open .sidebar-backdrop{display:block;}
  .section-title{
    font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
    color:var(--text-secondary);margin:24px 12px 10px;
@@ -56,7 +65,7 @@ function header_html($title='Residentes'){
  .menu-item:hover svg,.menu-item:hover i{opacity:1;}
  .menu-item.active{background:var(--primary);color:#fff;box-shadow:var(--shadow-sm);transform:translateX(4px);}
  .menu-item.active svg,.menu-item.active i{opacity:1;color:#fff;}
- .content{margin-left:280px;padding:90px 30px 60px;min-height:100vh;}
+ .content{margin-left:280px;padding:90px 30px 60px;min-height:100vh;transition:margin-left .2s ease-in-out;}
  .content-inner{max-width:1400px;margin:0 auto;}
  hr{border:none;border-top:1px solid var(--border);margin:20px 12px;}
  .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
@@ -68,15 +77,24 @@ function header_html($title='Residentes'){
  /* En pantallas táctiles (sin hover), siempre visibles */
  @media (hover:none){ td .actions{visibility:visible; opacity:1;} }
  th.actions-col, td.actions-col{width: 140px;}
+ body.sidebar-collapsed .sidebar{transform:translateX(-100%);}
+ body.sidebar-collapsed .content{margin-left:0;}
 @media (max-width: 992px){
   .sidebar{transform:translateX(-100%);}
+  body.sidebar-open .sidebar{transform:translateX(0);}
   .content{margin-left:0;padding:90px 20px 40px;}
 }
 </style>
 </head><body>
 <header class="topbar">
-  <div class="brand">COOPNAMA II</div>
+  <div class="brand">
+    <button type="button" id="sidebarToggle" class="btn btn-outline-secondary btn-sm" aria-label="Menú">
+      <i class="bi bi-list"></i>
+    </button>
+    COOPNAMA II
+  </div>
 </header>
+<div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 
 <nav class="sidebar">
   <div class="section-title">Propietarios</div>
@@ -146,6 +164,42 @@ $(function(){
     });
   }
   $(document).on('click','.btn-delete',function(e){ if(!confirm('¿Eliminar este registro?')) e.preventDefault(); });
+
+  // Sidebar: colapsable en desktop y offcanvas en móvil
+  (function(){
+    var toggle = document.getElementById('sidebarToggle');
+    if (!toggle) return;
+    var backdrop = document.getElementById('sidebarBackdrop');
+    var mq = window.matchMedia('(max-width: 992px)');
+    function isMobile(){ return mq.matches; }
+    function closeMobile(){ document.body.classList.remove('sidebar-open'); }
+    function setCollapsed(v){
+      if (v) document.body.classList.add('sidebar-collapsed');
+      else document.body.classList.remove('sidebar-collapsed');
+      try { localStorage.setItem('sidebarCollapsed', v ? '1' : '0'); } catch(e){}
+    }
+    function toggleSidebar(){
+      if (isMobile()) {
+        document.body.classList.toggle('sidebar-open');
+      } else {
+        setCollapsed(!document.body.classList.contains('sidebar-collapsed'));
+      }
+    }
+    try {
+      if (!isMobile() && localStorage.getItem('sidebarCollapsed') === '1') {
+        document.body.classList.add('sidebar-collapsed');
+      }
+    } catch(e){}
+    toggle.addEventListener('click', toggleSidebar);
+    if (backdrop) backdrop.addEventListener('click', closeMobile);
+    window.addEventListener('resize', function(){ if (!isMobile()) closeMobile(); });
+    document.querySelectorAll('.sidebar a.menu-item').forEach(function(a){
+      a.addEventListener('click', closeMobile);
+    });
+    document.addEventListener('keydown', function(ev){
+      if (ev.key === 'Escape') closeMobile();
+    });
+  })();
 });
 </script>
 </body></html>
