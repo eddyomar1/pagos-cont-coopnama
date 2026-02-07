@@ -128,6 +128,12 @@ render_header('Pagos registrados','pagos');
 <!-- CARD TABLA PAGOS -->
 <div class="card">
   <div class="card-body">
+    <style>
+      /* Evita que "Meses pagados" fuerce ancho excesivo */
+      #tabla_pagos td.col-meses{white-space:normal;max-width:420px;}
+      #tabla_pagos td.col-meses .mes-badges{display:flex;flex-wrap:wrap;gap:.25rem;}
+      #tabla_pagos td.col-meses .mes-badge{border:1px solid rgba(0,0,0,.08);background:#f8fafc;color:#0f172a;font-weight:500;}
+    </style>
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
       <h5 class="mb-0">Pagos registrados</h5>
       <div class="fw-semibold text-success">Total cobrado: RD$ <?= number_format($totalCobrado,2,'.',',') ?></div>
@@ -162,7 +168,9 @@ render_header('Pagos registrados','pagos');
             $meses = json_decode($p['meses_pagados'] ?? '[]', true) ?: [];
             $meses_legibles = [];
             foreach($meses as $f){
-              $meses_legibles[] = fecha_larga_es($f);
+              // Ej: "5 de febrero de 2026" -> "febrero de 2026"
+              $txt = fecha_larga_es($f);
+              $meses_legibles[] = preg_replace('~^\\d+\\s+de\\s+~u', '', $txt);
             }
             $tipo = $p['tipo'] ?? 'pago';
             $isAnulacion = ($tipo === 'anulacion') || ((float)($p['total'] ?? 0) < 0);
@@ -176,7 +184,17 @@ render_header('Pagos registrados','pagos');
             <td><?= e($p['edif_apto']) ?></td>
             <td><?= e(format_cedula($p['cedula'])) ?></td>
             <td><?= e($p['fecha_pagada']) ?></td>
-            <td><?= e(implode(', ', $meses_legibles)) ?></td>
+            <td class="col-meses">
+              <?php if(!$meses_legibles): ?>
+                <span class="text-muted">—</span>
+              <?php else: ?>
+                <div class="mes-badges">
+                  <?php foreach($meses_legibles as $m): ?>
+                    <span class="badge rounded-pill mes-badge"><?= e($m) ?></span>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </td>
             <td><?= number_format((float)$p['monto_base'],2,'.',',') ?></td>
             <td><?= number_format((float)$p['mora'],2,'.',',') ?></td>
             <td><?= number_format((float)$p['total'],2,'.',',') ?></td>
