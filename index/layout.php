@@ -64,15 +64,17 @@ function render_header(string $title='Residentes', string $active='residentes'){
    display:flex;align-items:center;padding:12px 14px;margin:4px 8px;border-radius:var(--radius);
    color:var(--text-primary);text-decoration:none;font-weight:500;transition:all .2s ease;
  }
- .menu-item:hover{background:var(--hover);transform:translateX(4px);}
- .menu-item svg,.menu-item i{width:22px;height:22px;margin-right:14px;opacity:.8;flex-shrink:0;}
- .menu-item:hover svg,.menu-item:hover i{opacity:1;}
- .menu-item.active{background:var(--primary);color:#fff;box-shadow:var(--shadow-sm);transform:translateX(4px);}
- .menu-item.active svg,.menu-item.active i{opacity:1;color:#fff;}
- .content{margin-left:280px;padding:90px 24px 60px;min-height:100vh;transition:margin-left .2s ease-in-out;}
- .content-inner{max-width:1600px;margin:0 auto;}
- hr{border:none;border-top:1px solid var(--border);margin:20px 12px;}
- .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
+	 .menu-item:hover{background:var(--hover);transform:translateX(4px);}
+	 .menu-item svg,.menu-item i{width:22px;height:22px;margin-right:14px;opacity:.8;flex-shrink:0;}
+	 .menu-item:hover svg,.menu-item:hover i{opacity:1;}
+	 .menu-item.active{background:var(--primary);color:#fff;box-shadow:var(--shadow-sm);transform:translateX(4px);}
+	 .menu-item.active svg,.menu-item.active i{opacity:1;color:#fff;}
+	 .menu-item:focus{outline:2px solid rgba(37,99,235,.35);outline-offset:2px;}
+	 .menu-item:focus-visible{outline:2px solid rgba(37,99,235,.55);}
+	 .content{margin-left:280px;padding:90px 24px 60px;min-height:100vh;transition:margin-left .2s ease-in-out;}
+	 .content-inner{max-width:1600px;margin:0 auto;}
+	 hr{border:none;border-top:1px solid var(--border);margin:20px 12px;}
+	 .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
  .table thead th{font-weight:600}
  .table-nowrap td,.table-nowrap th{white-space:nowrap}
  .actions-col{width:140px}
@@ -255,7 +257,20 @@ $(function(){
       return isMobile() ? document.body.classList.contains('sidebar-open')
                         : !document.body.classList.contains('sidebar-collapsed');
     }
+	    function focusSidebarActive(){
+	      var active = document.querySelector('.sidebar a.menu-item.active');
+	      var first = document.querySelector('.sidebar a.menu-item');
+	      var el = active || first;
+	      if (el) {
+	        el.focus();
+	        try { el.scrollIntoView({block:'nearest'}); } catch(e){}
+	      }
+	    }
     function closeMobile(){ document.body.classList.remove('sidebar-open'); }
+    function closeSidebar(){
+      if (isMobile()) closeMobile();
+      else setCollapsed(true);
+    }
     function setCollapsed(v){
       if (v) document.body.classList.add('sidebar-collapsed');
       else document.body.classList.remove('sidebar-collapsed');
@@ -265,20 +280,20 @@ $(function(){
       if (isMobile()) {
         document.body.classList.toggle('sidebar-open');
         if (document.body.classList.contains('sidebar-open')) {
-          var first = document.querySelector('.sidebar a.menu-item');
-          if (first) first.focus();
+          focusSidebarActive();
         }
       } else {
         setCollapsed(!document.body.classList.contains('sidebar-collapsed'));
         if (!document.body.classList.contains('sidebar-collapsed')) {
-          var first = document.querySelector('.sidebar a.menu-item');
-          if (first) first.focus();
+          focusSidebarActive();
         }
       }
     }
     // Exponer para atajos de teclado
     window.__toggleSidebar = toggleSidebar;
     window.__isSidebarVisible = isSidebarVisible;
+    window.__closeSidebar = closeSidebar;
+    window.__focusSidebarActive = focusSidebarActive;
     try {
       if (!isMobile() && localStorage.getItem('sidebarCollapsed') === '1') {
         document.body.classList.add('sidebar-collapsed');
@@ -340,6 +355,26 @@ $(function(){
       if (isEditable(ev.target)) return;
 
       if (ev.key === 'Enter') {
+        // Si el foco está en el menú, Enter navega (o cierra si es la sección actual)
+        var focused = document.activeElement;
+        if (focused && focused.matches && focused.matches('.sidebar a.menu-item') && typeof window.__isSidebarVisible === 'function' && window.__isSidebarVisible()) {
+          ev.preventDefault();
+          if (focused.classList.contains('active')) {
+            if (typeof window.__toggleSidebar === 'function') window.__toggleSidebar();
+          } else {
+            var href = focused.getAttribute('href');
+            if (href) {
+              window.location.href = href;
+              if (typeof window.__closeSidebar === 'function') window.__closeSidebar();
+            }
+          }
+          return;
+        }
+        // Si está en otro elemento interactivo, no interceptar
+        if (focused) {
+          var tag = (focused.tagName || '').toLowerCase();
+          if (tag === 'a' || tag === 'button' || focused.getAttribute('role') === 'button') return;
+        }
         if (typeof window.__toggleSidebar === 'function') {
           ev.preventDefault();
           window.__toggleSidebar();
