@@ -251,6 +251,10 @@ $(function(){
     var backdrop = document.getElementById('sidebarBackdrop');
     var mq = window.matchMedia('(max-width: 992px)');
     function isMobile(){ return mq.matches; }
+    function isSidebarVisible(){
+      return isMobile() ? document.body.classList.contains('sidebar-open')
+                        : !document.body.classList.contains('sidebar-collapsed');
+    }
     function closeMobile(){ document.body.classList.remove('sidebar-open'); }
     function setCollapsed(v){
       if (v) document.body.classList.add('sidebar-collapsed');
@@ -260,10 +264,21 @@ $(function(){
     function toggleSidebar(){
       if (isMobile()) {
         document.body.classList.toggle('sidebar-open');
+        if (document.body.classList.contains('sidebar-open')) {
+          var first = document.querySelector('.sidebar a.menu-item');
+          if (first) first.focus();
+        }
       } else {
         setCollapsed(!document.body.classList.contains('sidebar-collapsed'));
+        if (!document.body.classList.contains('sidebar-collapsed')) {
+          var first = document.querySelector('.sidebar a.menu-item');
+          if (first) first.focus();
+        }
       }
     }
+    // Exponer para atajos de teclado
+    window.__toggleSidebar = toggleSidebar;
+    window.__isSidebarVisible = isSidebarVisible;
     try {
       if (!isMobile() && localStorage.getItem('sidebarCollapsed') === '1') {
         document.body.classList.add('sidebar-collapsed');
@@ -277,6 +292,80 @@ $(function(){
     });
     document.addEventListener('keydown', function(ev){
       if (ev.key === 'Escape') closeMobile();
+    });
+  })();
+
+  // Atajos de teclado:
+  // - Cualquier letra => enfoca el buscador y escribe
+  // - Enter => abre/cierra sidebar
+  // - Flechas ↑↓ => navegar opciones del sidebar (cuando visible)
+  (function(){
+    function isEditable(el){
+      if (!el) return false;
+      var tag = (el.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      return !!el.isContentEditable;
+    }
+    function isVisible(el){
+      return !!(el && el.offsetParent !== null);
+    }
+    function getSearch(){
+      var s = document.getElementById('globalSearch');
+      if (s && isVisible(s) && !s.disabled) return s;
+      s = document.querySelector('input[type="search"]');
+      if (s && isVisible(s) && !s.disabled) return s;
+      return null;
+    }
+    function sidebarItems(){
+      return Array.prototype.slice.call(document.querySelectorAll('.sidebar a.menu-item'))
+        .filter(isVisible);
+    }
+    function moveSidebarFocus(dir){
+      var items = sidebarItems();
+      if (!items.length) return;
+      var cur = document.activeElement;
+      var idx = items.indexOf(cur);
+      if (idx === -1) idx = (dir === 'down') ? -1 : 0;
+      var nextIdx = (dir === 'down')
+        ? Math.min(items.length - 1, idx + 1)
+        : Math.max(0, idx - 1);
+      var next = items[nextIdx] || items[0];
+      next.focus();
+      try { next.scrollIntoView({block:'nearest'}); } catch(e){}
+    }
+
+    document.addEventListener('keydown', function(ev){
+      if (ev.defaultPrevented) return;
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      if (isEditable(ev.target)) return;
+
+      if (ev.key === 'Enter') {
+        if (typeof window.__toggleSidebar === 'function') {
+          ev.preventDefault();
+          window.__toggleSidebar();
+        }
+        return;
+      }
+
+      if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && typeof window.__isSidebarVisible === 'function' && window.__isSidebarVisible()) {
+        ev.preventDefault();
+        moveSidebarFocus(ev.key === 'ArrowDown' ? 'down' : 'up');
+        return;
+      }
+
+      if (ev.key && ev.key.length === 1) {
+        var s = getSearch();
+        if (!s) return;
+        ev.preventDefault();
+        s.focus();
+        var start = (typeof s.selectionStart === 'number') ? s.selectionStart : s.value.length;
+        var end   = (typeof s.selectionEnd === 'number') ? s.selectionEnd : s.value.length;
+        var v = s.value || '';
+        s.value = v.slice(0, start) + ev.key + v.slice(end);
+        var pos = start + ev.key.length;
+        try { s.setSelectionRange(pos, pos); } catch(e){}
+        s.dispatchEvent(new Event('input', {bubbles:true}));
+      }
     });
   })();
 
