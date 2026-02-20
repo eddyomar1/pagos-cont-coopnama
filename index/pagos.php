@@ -358,22 +358,21 @@ render_header('Pagos registrados','pagos');
 </div>
 
 <script>
-$(function(){
-  var $tablaPagos = $('#tabla_pagos');
-  if (!$tablaPagos.length) return;
+document.addEventListener('click', function(ev){
+  var row = ev.target.closest('#tabla_pagos tbody tr[data-factura-url]');
+  if (!row) return;
+  if (ev.target.closest('a,button,input,select,textarea,label,form')) return;
+  var url = row.getAttribute('data-factura-url');
+  if (url) window.location.href = url;
+});
 
-  $tablaPagos.on('click', 'tbody tr[data-factura-url]', function(ev){
-    if ($(ev.target).closest('a,button,input,select,textarea,label,form').length) return;
-    var url = $(this).data('factura-url');
-    if (url) window.location.href = url;
-  });
-
-  $tablaPagos.on('keydown', 'tbody tr[data-factura-url]', function(ev){
-    if (ev.key !== 'Enter' && ev.key !== ' ') return;
-    ev.preventDefault();
-    var url = $(this).data('factura-url');
-    if (url) window.location.href = url;
-  });
+document.addEventListener('keydown', function(ev){
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  var row = ev.target.closest('#tabla_pagos tbody tr[data-factura-url]');
+  if (!row) return;
+  ev.preventDefault();
+  var url = row.getAttribute('data-factura-url');
+  if (url) window.location.href = url;
 });
 </script>
 
