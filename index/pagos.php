@@ -66,6 +66,134 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'anula
   }
 }
 
+$viewAction = $_GET['action'] ?? 'index';
+if ($viewAction === 'factura') {
+  $facturaId = (int)($_GET['id'] ?? 0);
+  $factura = null;
+  if ($facturaId > 0) {
+    try{
+      $st = $pdo->prepare("
+        SELECT
+          p.*,
+          r.edif_apto,
+          r.nombres_apellidos,
+          r.cedula,
+          r.telefono
+        FROM pagos_residentes p
+        LEFT JOIN residentes r ON r.id = p.residente_id
+        WHERE p.id = ?
+        LIMIT 1
+      ");
+      $st->execute([$facturaId]);
+      $factura = $st->fetch();
+    }catch(Throwable $e){
+      app_log('Error cargando factura de pago '.$facturaId.': '.$e->getMessage());
+      $factura = null;
+    }
+  }
+
+  render_header('Factura de pago','pagos');
+  ?>
+  <style>
+    .factura-linea{margin-bottom:.4rem;}
+    .factura-linea strong{display:inline-block;min-width:140px;}
+    .factura-meses{display:flex;flex-wrap:wrap;gap:.35rem;}
+    @media print{
+      .topbar,.sidebar,.sidebar-backdrop,.print-actions{display:none !important;}
+      .content{margin-left:0 !important;padding:0 !important;}
+      .content-inner{max-width:none !important;}
+      .card{box-shadow:none !important;border:1px solid #d1d5db !important;}
+    }
+  </style>
+
+  <?php if(!$factura): ?>
+    <div class="card">
+      <div class="card-body">
+        <div class="alert alert-danger mb-3">No se encontró el pago solicitado.</div>
+        <a href="index.php?page=pagos" class="btn btn-outline-secondary">Volver a pagos registrados</a>
+      </div>
+    </div>
+  <?php else: ?>
+    <?php
+      $mesesFactura = json_decode($factura['meses_pagados'] ?? '[]', true) ?: [];
+      $mesesLegibles = [];
+      foreach($mesesFactura as $mf){
+        $mesesLegibles[] = fecha_larga_es($mf);
+      }
+      $isAnulacionFactura = (($factura['tipo'] ?? 'pago') === 'anulacion') || ((float)($factura['total'] ?? 0) < 0);
+    ?>
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3 print-actions">
+          <a href="index.php?page=pagos" class="btn btn-outline-secondary">Volver</a>
+          <button type="button" class="btn btn-primary" onclick="window.print()">Imprimir factura</button>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+          <div>
+            <h4 class="mb-1">Factura de pago #<?= (int)$factura['id'] ?></h4>
+            <div class="text-muted">Fecha de recibo: <?= e((string)$factura['fecha_recibo']) ?></div>
+          </div>
+          <?php if($isAnulacionFactura): ?>
+            <span class="badge text-bg-danger">Registro de anulación</span>
+          <?php else: ?>
+            <span class="badge text-bg-success">Pago aplicado</span>
+          <?php endif; ?>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-6">
+            <div class="factura-linea"><strong>Residente:</strong> <?= e((string)($factura['nombres_apellidos'] ?? '')) ?></div>
+            <div class="factura-linea"><strong>Edif/Apto:</strong> <?= e((string)($factura['edif_apto'] ?? '')) ?></div>
+            <div class="factura-linea"><strong>Cedula:</strong> <?= e(format_cedula((string)($factura['cedula'] ?? ''))) ?></div>
+            <div class="factura-linea"><strong>Telefono:</strong> <?= e((string)($factura['telefono'] ?? '')) ?></div>
+          </div>
+          <div class="col-lg-6">
+            <div class="factura-linea"><strong>Fecha pagada:</strong> <?= e((string)($factura['fecha_pagada'] ?? '')) ?></div>
+            <div class="factura-linea"><strong>Observaciones:</strong> <?= e((string)($factura['observaciones'] ?? '')) ?></div>
+          </div>
+        </div>
+
+        <hr>
+
+        <h6 class="mb-2">Meses pagados</h6>
+        <?php if(!$mesesLegibles): ?>
+          <div class="text-muted mb-3">Sin meses asociados.</div>
+        <?php else: ?>
+          <div class="factura-meses mb-3">
+            <?php foreach($mesesLegibles as $mesTxt): ?>
+              <span class="badge rounded-pill text-bg-light border"><?= e($mesTxt) ?></span>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+
+        <div class="table-responsive">
+          <table class="table table-bordered mb-0">
+            <tbody>
+              <tr>
+                <th style="width:220px;">Monto base</th>
+                <td>RD$ <?= number_format((float)($factura['monto_base'] ?? 0), 2, '.', ',') ?></td>
+              </tr>
+              <tr>
+                <th>Mora</th>
+                <td>RD$ <?= number_format((float)($factura['mora'] ?? 0), 2, '.', ',') ?></td>
+              </tr>
+              <tr class="table-light">
+                <th>Total</th>
+                <td><strong>RD$ <?= number_format((float)($factura['total'] ?? 0), 2, '.', ',') ?></strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  <?php endif; ?>
+
+  <?php
+  render_footer();
+  return;
+}
+
 $rows = [];
 try{
   $sql = "
@@ -133,6 +261,8 @@ render_header('Pagos registrados','pagos');
       #tabla_pagos td.col-meses{white-space:normal;max-width:420px;}
       #tabla_pagos td.col-meses .mes-badges{display:flex;flex-wrap:wrap;gap:.25rem;}
       #tabla_pagos td.col-meses .mes-badge{border:1px solid rgba(0,0,0,.08);background:#f8fafc;color:#0f172a;font-weight:500;}
+      #tabla_pagos tbody tr.row-pago{cursor:pointer;}
+      #tabla_pagos tbody tr.row-pago:focus{outline:2px solid rgba(37,99,235,.45);outline-offset:-2px;}
     </style>
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
       <h5 class="mb-0">Pagos registrados</h5>
@@ -176,8 +306,15 @@ render_header('Pagos registrados','pagos');
             $isAnulacion = ($tipo === 'anulacion') || ((float)($p['total'] ?? 0) < 0);
             $isAnulado = !$isAnulacion && isset($anulados[(int)$p['id']]);
             $rowClass = $isAnulacion ? 'table-danger' : '';
+            $facturaUrl = 'index.php?page=pagos&action=factura&id='.(int)$p['id'];
           ?>
-          <tr class="<?= $rowClass ?>">
+          <tr
+            class="<?= trim($rowClass.' row-pago') ?>"
+            tabindex="0"
+            role="button"
+            data-factura-url="<?= e($facturaUrl) ?>"
+            aria-label="Abrir factura del pago #<?= (int)$p['id'] ?>"
+          >
             <td><?= (int)$p['id'] ?></td>
             <td><?= e($p['fecha_recibo']) ?></td>
             <td><?= e($p['nombres_apellidos']) ?></td>
@@ -219,6 +356,26 @@ render_header('Pagos registrados','pagos');
     </div>
   </div>
 </div>
+
+<script>
+$(function(){
+  var $tablaPagos = $('#tabla_pagos');
+  if (!$tablaPagos.length) return;
+
+  $tablaPagos.on('click', 'tbody tr[data-factura-url]', function(ev){
+    if ($(ev.target).closest('a,button,input,select,textarea,label,form').length) return;
+    var url = $(this).data('factura-url');
+    if (url) window.location.href = url;
+  });
+
+  $tablaPagos.on('keydown', 'tbody tr[data-factura-url]', function(ev){
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    var url = $(this).data('factura-url');
+    if (url) window.location.href = url;
+  });
+});
+</script>
 
 <?php
 render_footer();
