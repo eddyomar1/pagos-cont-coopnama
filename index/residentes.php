@@ -8,7 +8,8 @@ $action = $_GET['action'] ?? 'index';
 function residentes_estado_pago(PDO $pdo, array $row): array{
   $idRes = (int)($row['id'] ?? 0);
   $pendientesRes = cuotas_pendientes_residente($pdo, $idRes, BASE_DUE);
-  $tiene_cuotas = count($pendientesRes) > 0;
+  $meses_adeudados = count($pendientesRes);
+  $tiene_cuotas = $meses_adeudados > 0;
   $deuda_extra = isset($row['deuda_extra']) ? (float)$row['deuda_extra'] : 0.0;
   $tiene_deuda_extra = $deuda_extra > 0.0001;
   $tiene_deuda = $tiene_cuotas || $tiene_deuda_extra;
@@ -16,12 +17,20 @@ function residentes_estado_pago(PDO $pdo, array $row): array{
   return [
     'id' => $idRes,
     'tiene_deuda' => $tiene_deuda,
+    'meses_adeudados' => $meses_adeudados,
+    'tiene_deuda_extra' => $tiene_deuda_extra,
   ];
 }
 
-function residentes_icono_estado(bool $tiene_deuda): string{
+function residentes_icono_estado(bool $tiene_deuda, int $meses_adeudados=0, bool $tiene_deuda_extra=false): string{
   if ($tiene_deuda) {
-    return '<span class="text-danger" title="Tiene pagos pendientes">&#9888;</span>';
+    $titulo = $meses_adeudados === 1 ? '1 mes adeudado' : $meses_adeudados.' meses adeudados';
+    if ($meses_adeudados === 0 && $tiene_deuda_extra) {
+      $titulo = '0 meses adeudados y deuda extra pendiente';
+    } elseif ($tiene_deuda_extra) {
+      $titulo .= ' y deuda extra pendiente';
+    }
+    return '<span class="d-inline-flex align-items-center gap-1" title="'.e($titulo).'"><span class="fw-semibold text-danger">'.$meses_adeudados.'</span><span class="text-danger" aria-hidden="true">&#9888;</span></span>';
   }
   return '<span class="text-success" title="Al dia">&#10003;</span>';
 }
@@ -57,6 +66,8 @@ function residentes_filtrados(PDO $pdo, array $rows, string $status, string $q='
 
     $r['_id_res'] = $meta['id'];
     $r['_tiene_deuda'] = $meta['tiene_deuda'];
+    $r['_meses_adeudados'] = $meta['meses_adeudados'];
+    $r['_tiene_deuda_extra'] = $meta['tiene_deuda_extra'];
     $filtered[] = $r;
   }
   return $filtered;
@@ -377,7 +388,7 @@ if ($action === 'print') {
               <td><?= e($r['nombres_apellidos']) ?></td>
               <td><?= e(format_cedula($r['cedula'])) ?></td>
               <td><?= e($r['telefono']) ?></td>
-              <td class="text-center"><?= residentes_icono_estado((bool)$r['_tiene_deuda']) ?></td>
+              <td class="text-center"><?= residentes_icono_estado((bool)$r['_tiene_deuda'], (int)$r['_meses_adeudados'], (bool)$r['_tiene_deuda_extra']) ?></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
@@ -477,7 +488,7 @@ if ($action === 'index') {
           <?php foreach($rows as $r): ?>
             <?php
               $idRes = (int)$r['_id_res'];
-              $estado_icono = residentes_icono_estado((bool)$r['_tiene_deuda']);
+              $estado_icono = residentes_icono_estado((bool)$r['_tiene_deuda'], (int)$r['_meses_adeudados'], (bool)$r['_tiene_deuda_extra']);
             ?>
             <tr>
               <td><?= e($r['edif_apto']) ?></td>
