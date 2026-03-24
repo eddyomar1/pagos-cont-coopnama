@@ -5,6 +5,63 @@ require __DIR__ . '/init.php';
 
 $action = $_GET['action'] ?? 'index';
 
+function residentes_estado_pago(PDO $pdo, array $row): array{
+  $idRes = (int)($row['id'] ?? 0);
+  $pendientesRes = cuotas_pendientes_residente($pdo, $idRes, BASE_DUE);
+  $tiene_cuotas = count($pendientesRes) > 0;
+  $deuda_extra = isset($row['deuda_extra']) ? (float)$row['deuda_extra'] : 0.0;
+  $tiene_deuda_extra = $deuda_extra > 0.0001;
+  $tiene_deuda = $tiene_cuotas || $tiene_deuda_extra;
+
+  return [
+    'id' => $idRes,
+    'tiene_deuda' => $tiene_deuda,
+  ];
+}
+
+function residentes_icono_estado(bool $tiene_deuda): string{
+  if ($tiene_deuda) {
+    return '<span class="text-danger" title="Tiene pagos pendientes">&#9888;</span>';
+  }
+  return '<span class="text-success" title="Al dia">&#10003;</span>';
+}
+
+function residentes_match_busqueda(array $row, string $q): bool{
+  $q = trim(mb_strtolower($q, 'UTF-8'));
+  if ($q === '') return true;
+
+  $haystack = mb_strtolower(implode(' ', [
+    (string)($row['edif_apto'] ?? ''),
+    (string)($row['nombres_apellidos'] ?? ''),
+    (string)format_cedula((string)($row['cedula'] ?? '')),
+    (string)($row['telefono'] ?? ''),
+  ]), 'UTF-8');
+
+  return mb_strpos($haystack, $q) !== false;
+}
+
+function residentes_filtrados(PDO $pdo, array $rows, string $status, string $q=''): array{
+  $filtered = [];
+  foreach($rows as $r){
+    $meta = residentes_estado_pago($pdo, $r);
+
+    if ($status === 'pendientes' && !$meta['tiene_deuda']) {
+      continue;
+    }
+    if ($status === 'pagados' && $meta['tiene_deuda']) {
+      continue;
+    }
+    if (!residentes_match_busqueda($r, $q)) {
+      continue;
+    }
+
+    $r['_id_res'] = $meta['id'];
+    $r['_tiene_deuda'] = $meta['tiene_deuda'];
+    $filtered[] = $r;
+  }
+  return $filtered;
+}
+
 /*********** 3) Acciones CRUD ***********/
 
 /* 3.1 Crear residente */
@@ -252,6 +309,92 @@ if ($action === 'delete' && isset($_GET['id'])) {
 /*********** 5) Vistas ***********/
 
 /* 5.1 Listado */
+if ($action === 'print') {
+  $status = $_GET['status'] ?? 'pendientes';
+  $q = trim((string)($_GET['q'] ?? ''));
+
+  render_header('Imprimir copropietarios','residentes');
+  $rows = [];
+  try{
+    $rows = $pdo->query("SELECT * FROM residentes ORDER BY id DESC")->fetchAll();
+  }catch(Throwable $e){
+    app_log('Error listando residentes para imprimir '.$status.': '.$e->getMessage());
+    $rows = [];
+  }
+  $rows = residentes_filtrados($pdo, $rows, $status, $q);
+  ?>
+  <style>
+    .print-list-link{
+      color:inherit;
+      text-decoration:none;
+    }
+    .print-list-link:hover{
+      color:inherit;
+    }
+    @media print{
+      .topbar,.sidebar,.sidebar-backdrop,.print-actions{display:none !important;}
+      .content{margin-left:0 !important;padding:0 !important;}
+      .content-inner{max-width:none !important;}
+      .card{box-shadow:none !important;border:1px solid #d1d5db !important;}
+    }
+  </style>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center gap-3 mb-3 print-actions">
+        <a href="index.php?page=residentes&status=<?= e($status) ?>" class="btn btn-outline-secondary">Volver</a>
+        <button type="button" class="btn btn-primary" onclick="window.print()">Imprimir</button>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+        <div>
+          <h4 class="mb-1">LISTA DE COPROPIETARIOS</h4>
+          <div class="text-muted">
+            <?= $status === 'pagados' ? 'Solo copropietarios al dia' : 'Solo copropietarios con deuda' ?>
+            <?php if ($q !== ''): ?>
+              | Filtro: "<?= e($q) ?>"
+            <?php endif; ?>
+          </div>
+        </div>
+        <div class="fw-semibold">Total: <?= count($rows) ?></div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Edif/Apto</th>
+              <th>Nombres y Apellidos</th>
+              <th>Cedula</th>
+              <th>Telefono</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php foreach($rows as $r): ?>
+            <tr>
+              <td><?= e($r['edif_apto']) ?></td>
+              <td><?= e($r['nombres_apellidos']) ?></td>
+              <td><?= e(format_cedula($r['cedula'])) ?></td>
+              <td><?= e($r['telefono']) ?></td>
+              <td class="text-center"><?= residentes_icono_estado((bool)$r['_tiene_deuda']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  window.addEventListener('load', function(){
+    window.setTimeout(function(){ window.print(); }, 150);
+  });
+  </script>
+  <?php
+  render_footer(); exit;
+}
+
 if ($action === 'index') {
   // Filtro por estado: pendientes (default) o pagados
   $status = $_GET['status'] ?? 'pendientes';
@@ -265,6 +408,8 @@ if ($action === 'index') {
     app_log('Error listando residentes '.$status.': '.$e->getMessage());
     $rows = [];
   }
+  $rows = residentes_filtrados($pdo, $rows, $status);
+  $printUrl = 'index.php?page=residentes&action=print&status='.urlencode($status);
 
   if(isset($_GET['saved']))   echo '<div class="alert alert-success">Registro agregado.</div>';
   if(isset($_GET['updated'])) echo '<div class="alert alert-info">Pago registrado.</div>';
@@ -303,7 +448,19 @@ if ($action === 'index') {
   <!-- CARD TABLA -->
   <div class="card">
     <div class="card-body">
-      <h5 class="mb-3">LISTA DE COPROPIETARIOS</h5>
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <a
+          href="<?= e($printUrl) ?>"
+          class="print-list-link d-inline-flex align-items-center gap-2 text-decoration-none text-body-emphasis"
+          data-print-base="<?= e($printUrl) ?>"
+          target="_blank"
+          rel="noopener"
+          title="Imprimir lista de copropietarios"
+        >
+          <h5 class="mb-0">LISTA DE COPROPIETARIOS</h5>
+          <i class="bi bi-printer fs-5"></i>
+        </a>
+      </div>
       <div class="table-responsive">
         <table id="tabla" class="table table-striped table-bordered align-middle table-nowrap">
           <thead class="table-light">
@@ -319,26 +476,8 @@ if ($action === 'index') {
           <tbody>
           <?php foreach($rows as $r): ?>
             <?php
-              $idRes = (int)$r['id'];
-              // Cuotas pendientes según historial de pagos (día configurable)
-              $pendientesRes = cuotas_pendientes_residente($pdo, $idRes, BASE_DUE);
-              $tiene_cuotas  = count($pendientesRes) > 0;
-              $deuda_extra   = isset($r['deuda_extra']) ? (float)$r['deuda_extra'] : 0.0;
-              $tiene_deuda_extra = $deuda_extra > 0.0001;
-              $tiene_deuda = $tiene_cuotas || $tiene_deuda_extra;
-
-              if ($status === 'pendientes' && !$tiene_deuda) {
-                continue; // solo mostrar deudores
-              }
-              if ($status === 'pagados' && $tiene_deuda) {
-                continue; // solo mostrar al día
-              }
-
-              if ($tiene_deuda) {
-                $estado_icono = '<span class="text-danger" title="Tiene pagos pendientes">&#9888;</span>'; // ⚠
-              } else {
-                $estado_icono = '<span class="text-success" title="Al día">&#10003;</span>'; // ✓
-              }
+              $idRes = (int)$r['_id_res'];
+              $estado_icono = residentes_icono_estado((bool)$r['_tiene_deuda']);
             ?>
             <tr>
               <td><?= e($r['edif_apto']) ?></td>
@@ -359,6 +498,25 @@ if ($action === 'index') {
       </div>
     </div>
   </div>
+
+  <script>
+  document.addEventListener('click', function(ev){
+    var link = ev.target.closest('.print-list-link[data-print-base]');
+    if (!link) return;
+    var base = link.getAttribute('data-print-base') || link.getAttribute('href') || '';
+    if (!base) return;
+
+    var url = new URL(base, window.location.href);
+    var searchInput = document.getElementById('globalSearch');
+    var q = searchInput ? String(searchInput.value || '').trim() : '';
+    if (q !== '') {
+      url.searchParams.set('q', q);
+    } else {
+      url.searchParams.delete('q');
+    }
+    link.setAttribute('href', url.toString());
+  });
+  </script>
 
   <?php
   render_footer(); exit;
