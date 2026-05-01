@@ -651,11 +651,13 @@ if ($action==='new' || $action==='pagar') {
           margin-top:.15rem;
           font-size:.85rem;
           color:#64748b;
-          cursor:pointer;
           user-select:none;
+        }
+        .due-amount-display[data-editable-amount]{
+          cursor:pointer;
           border-bottom:1px dashed rgba(100,116,139,.45);
         }
-        .due-amount-display:hover{
+        .due-amount-display[data-editable-amount]:hover{
           color:#0f172a;
           border-bottom-color:rgba(15,23,42,.4);
         }
@@ -822,14 +824,15 @@ if ($action==='new' || $action==='pagar') {
 	        <div id="dueListWrapper">
 	          <?php if ($pendientes): ?>
 	            <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2" id="dueList">
-	              <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
+		              <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
                     <?php
                       $defaultAmount = cuota_monto_por_fecha($venc);
                       $customAmount = isset($old_due_amounts[$venc]) ? toDecimal((string)$old_due_amounts[$venc]) : null;
                       $dueAmount = $customAmount !== null ? (float)$customAmount : $defaultAmount;
+                      $editableDueAmount = $venc >= CUOTA_MONTO_NUEVO_DESDE;
                     ?>
-	                <div class="col">
-	                  <div class="form-check due-item" data-date="<?= e($venc) ?>">
+		                <div class="col">
+		                  <div class="form-check due-item" data-date="<?= e($venc) ?>">
 	                    <input
 	                      class="form-check-input due-option"
 	                      type="checkbox"
@@ -839,11 +842,11 @@ if ($action==='new' || $action==='pagar') {
 	                      data-label="<?= e($label) ?>"
 	                      checked
 	                    >
-	                    <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
+		                    <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
                         <div
                           class="due-amount-display"
-                          data-editable-amount="1"
-                          title="Doble clic para editar el monto de esta cuota"
+                          <?= $editableDueAmount ? 'data-editable-amount="1"' : '' ?>
+                          title="<?= e($editableDueAmount ? 'Doble clic para editar el monto de esta cuota' : 'Monto fijo para cuotas anteriores a mayo de 2026') ?>"
                         >RD$ <?= number_format($dueAmount,2,'.',',') ?></div>
                         <input
                           type="hidden"

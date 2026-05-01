@@ -170,6 +170,10 @@ $(function(){
     return cuotaMonto;
   }
 
+  function isDueAmountEditable(dateStr){
+    return !!(cuotaMontoNuevoDesde && dateStr && dateStr >= cuotaMontoNuevoDesde);
+  }
+
   function getDueAmount($box){
     var $wrap = $box.closest('.due-item');
     var $amountInput = $wrap.find('.due-amount-input');
@@ -558,11 +562,16 @@ $(function(){
         'data-label': label
       });
       var $label = $('<label>', { 'class': 'form-check-label', 'for': checkboxId }).text(label);
-      var $amountDisplay = $('<div>', {
+      var amountDisplayAttrs = {
         'class': 'due-amount-display',
-        'data-editable-amount': '1',
-        title: 'Doble clic para editar el monto de esta cuota'
-      }).text(formatMoney(defaultAmount));
+        title: isDueAmountEditable(nextDue)
+          ? 'Doble clic para editar el monto de esta cuota'
+          : 'Monto fijo para cuotas anteriores a mayo de 2026'
+      };
+      if (isDueAmountEditable(nextDue)) {
+        amountDisplayAttrs['data-editable-amount'] = '1';
+      }
+      var $amountDisplay = $('<div>', amountDisplayAttrs).text(formatMoney(defaultAmount));
       var $amountInput = $('<input>', {
         type: 'hidden',
         'class': 'due-amount-input',
