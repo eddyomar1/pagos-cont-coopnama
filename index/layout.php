@@ -138,8 +138,47 @@ function render_footer(){ ?>
 <script>
 $(function(){
   var cuotaMonto = parseFloat($('#cuotaMonto').val() || '1000');
+  var cuotaMontoNuevo = parseFloat($('#cuotaMontoNuevo').val() || cuotaMonto);
+  var cuotaMontoNuevoDesde = ($('#cuotaMontoNuevoDesde').val() || '').trim();
   if (isNaN(cuotaMonto) || cuotaMonto <= 0) {
     cuotaMonto = 1000;
+  }
+  if (isNaN(cuotaMontoNuevo) || cuotaMontoNuevo <= 0) {
+    cuotaMontoNuevo = cuotaMonto;
+  }
+
+  function parseMoney(value){
+    var raw = String(value || '').trim().replace(/\s+/g, '').replace(',', '.');
+    if (raw === '') return NaN;
+    var parsed = parseFloat(raw);
+    return isNaN(parsed) ? NaN : parsed;
+  }
+
+  function formatMoney(value){
+    var amount = parseFloat(value);
+    if (isNaN(amount)) amount = 0;
+    return 'RD$ ' + amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function defaultDueAmount(dateStr){
+    if (cuotaMontoNuevoDesde && dateStr && dateStr >= cuotaMontoNuevoDesde) {
+      return cuotaMontoNuevo;
+    }
+    return cuotaMonto;
+  }
+
+  function getDueAmount($box){
+    var $wrap = $box.closest('.due-item');
+    var $amountInput = $wrap.find('.due-amount-input');
+    var parsed = parseMoney($amountInput.val());
+    if (isNaN(parsed) || parsed < 0) {
+      parsed = defaultDueAmount($box.val());
+      $amountInput.val(parsed.toFixed(2));
+    }
+    return parsed;
   }
 
   // === DataTable RESIDENTES ===
@@ -193,7 +232,10 @@ $(function(){
   function recalcDueSelection(){
     var $boxes = $('.due-option:checked');
     var count  = $boxes.length;
-    var totalCuotas = count * cuotaMonto;
+    var totalCuotas = 0;
+    $boxes.each(function(){
+      totalCuotas += getDueAmount($(this));
+    });
 
     var deudaStr = $('#deuda_restante').val() || $('#deuda_extra_actual').val() || '0';
     deudaStr = deudaStr.replace(',', '.');
@@ -236,6 +278,26 @@ $(function(){
   $(document).on('change', '.due-option', recalcDueSelection);
   $(document).on('input', '#abono_deuda_extra', recalcDueSelection);
   $(document).on('input', 'input[name="mora"]', recalcDueSelection);
+  $(document).on('dblclick', '.due-amount-display[data-editable-amount]', function(){
+    var $display = $(this);
+    var $wrap = $display.closest('.due-item');
+    var $amountInput = $wrap.find('.due-amount-input');
+    var dueDate = $wrap.data('date') || '';
+    var currentAmount = parseMoney($amountInput.val());
+    if (isNaN(currentAmount) || currentAmount < 0) {
+      currentAmount = defaultDueAmount(dueDate);
+    }
+    var promptValue = window.prompt('Monto de la cuota', currentAmount.toFixed(2));
+    if (promptValue === null) return;
+    var parsed = parseMoney(promptValue);
+    if (isNaN(parsed) || parsed < 0) {
+      window.alert('Debes indicar un monto valido.');
+      return;
+    }
+    $amountInput.val(parsed.toFixed(2));
+    $display.text(formatMoney(parsed));
+    recalcDueSelection();
+  });
 
   // Evitar envíos duplicados en formularios con #btnSubmit
   var $btnSubmit = $('#btnSubmit');
@@ -483,6 +545,7 @@ $(function(){
     var idx = $('.due-option').length + advancesAdded;
     var label = formatDueLabel(nextDue);
     var checkboxId = 'dueFuture' + idx;
+    var defaultAmount = defaultDueAmount(nextDue);
     if ($dueList.length) {
       var $col = $('<div>', { 'class': 'col future-due', 'data-date': nextDue });
       var $check = $('<input>', {
@@ -495,8 +558,19 @@ $(function(){
         'data-label': label
       });
       var $label = $('<label>', { 'class': 'form-check-label', 'for': checkboxId }).text(label);
+      var $amountDisplay = $('<div>', {
+        'class': 'due-amount-display',
+        'data-editable-amount': '1',
+        title: 'Doble clic para editar el monto de esta cuota'
+      }).text(formatMoney(defaultAmount));
+      var $amountInput = $('<input>', {
+        type: 'hidden',
+        'class': 'due-amount-input',
+        name: 'due_amounts[' + nextDue + ']',
+        value: defaultAmount.toFixed(2)
+      });
       $col.append(
-        $('<div>', { 'class': 'form-check' }).append($check, $label)
+        $('<div>', { 'class': 'form-check due-item', 'data-date': nextDue }).append($check, $label, $amountDisplay, $amountInput)
       );
       $dueList.append($col);
       futureDueStack.push({ id: checkboxId, date: nextDue });

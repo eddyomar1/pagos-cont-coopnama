@@ -186,6 +186,16 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues'])
     ? $_POST['selected_dues'] : [];
   $selected_dues = array_values(array_filter($selected_dues, 'is_ymd'));
+  $due_amounts_post = isset($_POST['due_amounts']) && is_array($_POST['due_amounts'])
+    ? $_POST['due_amounts'] : [];
+  $selected_due_amounts = [];
+  foreach($selected_dues as $dueDate){
+    $rawAmount = $due_amounts_post[$dueDate] ?? null;
+    $parsedAmount = $rawAmount !== null ? toDecimal((string)$rawAmount) : null;
+    $amount = $parsedAmount !== null ? (float)$parsedAmount : cuota_monto_por_fecha($dueDate);
+    if ($amount < 0) $amount = 0.0;
+    $selected_due_amounts[$dueDate] = $amount;
+  }
 
   // === RAMA: MODO DEUDA ===
   if ($modo_deuda) {
@@ -222,14 +232,14 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     $fecha_x_pagar = toDateOrNull(body('fecha_x_pagar')) ?: null;
   }
 
-  // Monto base = meses x CUOTA_MONTO + abono deuda extra
-  $monto_base_cuotas = count($selected_dues) * CUOTA_MONTO;
+  // Monto base = suma de cuotas seleccionadas + abono deuda extra
+  $monto_base_cuotas = cuotas_total_por_fechas($selected_dues, $selected_due_amounts);
   $monto_base        = $monto_base_cuotas + $abono_deuda_extra;
 
   $pendientes_totales = cuotas_pendientes_residente($pdo, $id, BASE_DUE);
   $cantidad_pendientes_totales = count($pendientes_totales);
   $mora_auto_raw = $cantidad_pendientes_totales > 0
-    ? $cantidad_pendientes_totales * CUOTA_MONTO * MORA_PCT
+    ? cuotas_total_por_fechas($pendientes_totales) * MORA_PCT
     : 0.0;
   $mora_manual = toDecimal(body('mora'));
   if ($mora_manual !== null) {
@@ -272,26 +282,46 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     ]);
 
     // Registrar pago detallado
-    $stmt2 = $pdo->prepare(
-      "INSERT INTO pagos_residentes
-       (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
-        monto_base, mora, total, observaciones)
-       VALUES (?,?,?,?,?,?,?,?)"
-    );
+    $detalle_cuotas_json = json_encode($selected_due_amounts, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
     $observaciones = $abono_deuda_extra > 0
       ? 'Incluye abono a deuda extra de RD$ '.number_format($abono_deuda_extra,2,'.','')
       : null;
-
-    $stmt2->execute([
-      $id,
-      date('Y-m-d H:i:s'),
-      $fecha_pagada,
-      json_encode($selected_dues, JSON_UNESCAPED_UNICODE),
-      $monto_base,
-      $mora,
-      $monto_base + $mora,
-      $observaciones
-    ]);
+    if (defined('HAS_PAGOS_DETALLE_CUOTAS') && HAS_PAGOS_DETALLE_CUOTAS) {
+      $stmt2 = $pdo->prepare(
+        "INSERT INTO pagos_residentes
+         (residente_id, fecha_recibo, fecha_pagada, meses_pagados, detalle_cuotas,
+          monto_base, mora, total, observaciones)
+         VALUES (?,?,?,?,?,?,?,?,?)"
+      );
+      $stmt2->execute([
+        $id,
+        date('Y-m-d H:i:s'),
+        $fecha_pagada,
+        json_encode($selected_dues, JSON_UNESCAPED_UNICODE),
+        $detalle_cuotas_json,
+        $monto_base,
+        $mora,
+        $monto_base + $mora,
+        $observaciones
+      ]);
+    } else {
+      $stmt2 = $pdo->prepare(
+        "INSERT INTO pagos_residentes
+         (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
+          monto_base, mora, total, observaciones)
+         VALUES (?,?,?,?,?,?,?,?)"
+      );
+      $stmt2->execute([
+        $id,
+        date('Y-m-d H:i:s'),
+        $fecha_pagada,
+        json_encode($selected_dues, JSON_UNESCAPED_UNICODE),
+        $monto_base,
+        $mora,
+        $monto_base + $mora,
+        $observaciones
+      ]);
+    }
 
     $pdo->commit();
     header('Location:index.php?updated=1'); exit;
@@ -576,6 +606,8 @@ if ($action==='new' || $action==='pagar') {
   $errors=$_SESSION['errors'] ?? [];
   $old_mora_manual = isset($old_inputs['mora']) ? trim((string)$old_inputs['mora']) : '';
   $had_manual_mora = $old_mora_manual !== '';
+  $old_due_amounts = isset($old_inputs['due_amounts']) && is_array($old_inputs['due_amounts'])
+    ? $old_inputs['due_amounts'] : [];
   $_SESSION['old']=$_SESSION['errors']=null;
 
   render_header($editing?'Pagar / Crear recibo':'Agregar residente','residentes');
@@ -600,7 +632,7 @@ if ($action==='new' || $action==='pagar') {
   }
 
   // Mora automática según MORA_PCT si hay atrasos
-  $total_pendiente_cuotas = $cantidad * CUOTA_MONTO;
+  $total_pendiente_cuotas = cuotas_total_por_fechas($pendientes);
   $mora_auto = $cantidad > 0 ? $total_pendiente_cuotas * MORA_PCT : 0.0;
   if (!$had_manual_mora) {
     $data['mora'] = number_format($mora_auto, 2, '.', '');
@@ -610,10 +642,26 @@ if ($action==='new' || $action==='pagar') {
   $deuda_extra_db   = isset($data['deuda_extra']) ? (float)$data['deuda_extra'] : 0.0;
   $deuda_extra_fmt  = number_format($deuda_extra_db,2,'.','');
   $mostrar_card_deuda = $deuda_extra_db > 0;
-  ?>
-  <div class="row justify-content-center"><div class="col-lg-10">
+	  ?>
+	  <div class="row justify-content-center"><div class="col-lg-10">
+      <style>
+        .due-amount-display{
+          display:inline-block;
+          margin-left:1.45rem;
+          margin-top:.15rem;
+          font-size:.85rem;
+          color:#64748b;
+          cursor:pointer;
+          user-select:none;
+          border-bottom:1px dashed rgba(100,116,139,.45);
+        }
+        .due-amount-display:hover{
+          color:#0f172a;
+          border-bottom-color:rgba(15,23,42,.4);
+        }
+      </style>
 
-    <?php if($errors): ?>
+	    <?php if($errors): ?>
       <div class="alert alert-danger">
         <ul class="mb-0">
           <?php foreach($errors as $m) echo "<li>".e($m)."</li>"; ?>
@@ -771,26 +819,42 @@ if ($action==='new' || $action==='pagar') {
         <?php
           $proximo = proximo_vencimiento($data['fecha_x_pagar'] ?? null);
         ?>
-        <div id="dueListWrapper">
-          <?php if ($pendientes): ?>
-            <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2" id="dueList">
-              <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
-                <div class="col">
-                  <div class="form-check">
-                    <input
-                      class="form-check-input due-option"
-                      type="checkbox"
-                      name="selected_dues[]"
-                      id="due<?= $i ?>"
-                      value="<?= e($venc) ?>"
-                      data-label="<?= e($label) ?>"
-                      checked
-                    >
-                    <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
-                  </div>
-                </div>
-              <?php endforeach; ?>
-            </div>
+	        <div id="dueListWrapper">
+	          <?php if ($pendientes): ?>
+	            <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2" id="dueList">
+	              <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
+                    <?php
+                      $defaultAmount = cuota_monto_por_fecha($venc);
+                      $customAmount = isset($old_due_amounts[$venc]) ? toDecimal((string)$old_due_amounts[$venc]) : null;
+                      $dueAmount = $customAmount !== null ? (float)$customAmount : $defaultAmount;
+                    ?>
+	                <div class="col">
+	                  <div class="form-check due-item" data-date="<?= e($venc) ?>">
+	                    <input
+	                      class="form-check-input due-option"
+	                      type="checkbox"
+	                      name="selected_dues[]"
+	                      id="due<?= $i ?>"
+	                      value="<?= e($venc) ?>"
+	                      data-label="<?= e($label) ?>"
+	                      checked
+	                    >
+	                    <label class="form-check-label" for="due<?= $i ?>"><?= e($label) ?></label>
+                        <div
+                          class="due-amount-display"
+                          data-editable-amount="1"
+                          title="Doble clic para editar el monto de esta cuota"
+                        >RD$ <?= number_format($dueAmount,2,'.',',') ?></div>
+                        <input
+                          type="hidden"
+                          class="due-amount-input"
+                          name="due_amounts[<?= e($venc) ?>]"
+                          value="<?= number_format($dueAmount,2,'.','') ?>"
+                        >
+	                  </div>
+	                </div>
+	              <?php endforeach; ?>
+	            </div>
             <div id="noDueMessage" class="alert alert-success mb-0 d-none">
               No hay cuotas pendientes. Próximo vencimiento (día <?= e(DUE_DAY) ?>):
               <strong><?= e(fecha_larga_es($proximo)) ?></strong>.
@@ -804,10 +868,12 @@ if ($action==='new' || $action==='pagar') {
           <?php endif; ?>
         </div>
 
-        <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="">
-        <input type="hidden" id="cuotaMonto" value="<?= number_format(CUOTA_MONTO,2,'.','') ?>">
-        <?php if ($editing && $next_future_due): ?>
-          <input
+	        <input type="hidden" name="fecha_x_pagar" id="fecha_x_pagar" value="">
+	        <input type="hidden" id="cuotaMonto" value="<?= number_format(CUOTA_MONTO,2,'.','') ?>">
+            <input type="hidden" id="cuotaMontoNuevo" value="<?= number_format(CUOTA_MONTO_NUEVO,2,'.','') ?>">
+            <input type="hidden" id="cuotaMontoNuevoDesde" value="<?= e(CUOTA_MONTO_NUEVO_DESDE) ?>">
+	        <?php if ($editing && $next_future_due): ?>
+	          <input
             type="hidden"
             id="nextFutureDue"
             value="<?= e($next_future_due) ?>"

@@ -17,3 +17,4 @@ require __DIR__ . '/layout.php';
 ensure_deuda_inicial_column($pdo);
 ensure_exonerado_columns($pdo);
 ensure_pagos_anulacion_columns($pdo);
+ensure_pagos_detalle_cuotas_column($pdo);

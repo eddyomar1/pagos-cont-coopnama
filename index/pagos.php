@@ -38,23 +38,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'anula
     $obsOrig    = trim((string)($orig['observaciones'] ?? ''));
     $obsNew     = 'ANULACION de pago #'.$id.($obsOrig ? ' | Original: '.$obsOrig : '');
 
-    $ins = $pdo->prepare(
-      "INSERT INTO pagos_residentes
-       (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
-        monto_base, mora, total, observaciones, tipo, anulado_de)
-       VALUES (?,?,?,?,?,?,?,?, 'anulacion', ?)"
-    );
-    $ins->execute([
-      (int)$orig['residente_id'],
-      date('Y-m-d H:i:s'),
-      date('Y-m-d'),
-      $orig['meses_pagados'],
-      $monto_base,
-      $mora,
-      $total,
-      $obsNew,
-      $id,
-    ]);
+    if (defined('HAS_PAGOS_DETALLE_CUOTAS') && HAS_PAGOS_DETALLE_CUOTAS) {
+      $ins = $pdo->prepare(
+        "INSERT INTO pagos_residentes
+         (residente_id, fecha_recibo, fecha_pagada, meses_pagados, detalle_cuotas,
+          monto_base, mora, total, observaciones, tipo, anulado_de)
+         VALUES (?,?,?,?,?,?,?,?,?, 'anulacion', ?)"
+      );
+      $ins->execute([
+        (int)$orig['residente_id'],
+        date('Y-m-d H:i:s'),
+        date('Y-m-d'),
+        $orig['meses_pagados'],
+        $orig['detalle_cuotas'] ?? null,
+        $monto_base,
+        $mora,
+        $total,
+        $obsNew,
+        $id,
+      ]);
+    } else {
+      $ins = $pdo->prepare(
+        "INSERT INTO pagos_residentes
+         (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
+          monto_base, mora, total, observaciones, tipo, anulado_de)
+         VALUES (?,?,?,?,?,?,?,?, 'anulacion', ?)"
+      );
+      $ins->execute([
+        (int)$orig['residente_id'],
+        date('Y-m-d H:i:s'),
+        date('Y-m-d'),
+        $orig['meses_pagados'],
+        $monto_base,
+        $mora,
+        $total,
+        $obsNew,
+        $id,
+      ]);
+    }
 
     $pdo->commit();
     header('Location: index.php?page=pagos&anulado=1'); exit;
@@ -113,15 +134,22 @@ if ($viewAction === 'factura') {
         <a href="index.php?page=pagos" class="btn btn-outline-secondary">Volver a pagos registrados</a>
       </div>
     </div>
-  <?php else: ?>
-    <?php
-      $mesesFactura = json_decode($factura['meses_pagados'] ?? '[]', true) ?: [];
-      $mesesLegibles = [];
-      foreach($mesesFactura as $mf){
-        $mesesLegibles[] = fecha_larga_es($mf);
-      }
-      $isAnulacionFactura = (($factura['tipo'] ?? 'pago') === 'anulacion') || ((float)($factura['total'] ?? 0) < 0);
-    ?>
+	    <?php else: ?>
+	    <?php
+	      $mesesFactura = json_decode($factura['meses_pagados'] ?? '[]', true) ?: [];
+          $detalleCuotasFactura = json_decode($factura['detalle_cuotas'] ?? '[]', true);
+          if (!is_array($detalleCuotasFactura)) $detalleCuotasFactura = [];
+	      $mesesLegibles = [];
+	      foreach($mesesFactura as $mf){
+	        $mesesLegibles[] = [
+              'label' => fecha_larga_es($mf),
+              'amount' => isset($detalleCuotasFactura[$mf]) && is_numeric($detalleCuotasFactura[$mf])
+                ? (float)$detalleCuotasFactura[$mf]
+                : null,
+            ];
+	      }
+	      $isAnulacionFactura = (($factura['tipo'] ?? 'pago') === 'anulacion') || ((float)($factura['total'] ?? 0) < 0);
+	    ?>
     <div class="card">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center gap-2 mb-3 print-actions">
@@ -156,16 +184,21 @@ if ($viewAction === 'factura') {
 
         <hr>
 
-        <h6 class="mb-2">Meses pagados</h6>
-        <?php if(!$mesesLegibles): ?>
-          <div class="text-muted mb-3">Sin meses asociados.</div>
-        <?php else: ?>
-          <div class="factura-meses mb-3">
-            <?php foreach($mesesLegibles as $mesTxt): ?>
-              <span class="badge rounded-pill text-bg-light border"><?= e($mesTxt) ?></span>
-            <?php endforeach; ?>
-          </div>
-        <?php endif; ?>
+	        <h6 class="mb-2">Meses pagados</h6>
+	        <?php if(!$mesesLegibles): ?>
+	          <div class="text-muted mb-3">Sin meses asociados.</div>
+	        <?php else: ?>
+	          <div class="factura-meses mb-3">
+	            <?php foreach($mesesLegibles as $mesInfo): ?>
+	              <span class="badge rounded-pill text-bg-light border">
+                    <?= e($mesInfo['label']) ?>
+                    <?php if ($mesInfo['amount'] !== null): ?>
+                      | RD$ <?= number_format((float)$mesInfo['amount'], 2, '.', ',') ?>
+                    <?php endif; ?>
+                  </span>
+	            <?php endforeach; ?>
+	          </div>
+	        <?php endif; ?>
 
         <div class="table-responsive">
           <table class="table table-bordered mb-0">

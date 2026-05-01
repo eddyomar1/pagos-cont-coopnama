@@ -93,6 +93,29 @@ function align_due_day(string $ymd): string{
   return $m[1].'-'.$m[2].'-'.DUE_DAY;
 }
 
+function cuota_monto_por_fecha(string $ymd): float{
+  $default = (float)CUOTA_MONTO;
+  if (!defined('CUOTA_MONTO_NUEVO_DESDE') || !defined('CUOTA_MONTO_NUEVO')) {
+    return $default;
+  }
+  if (!preg_match('~^\d{4}-\d{2}-\d{2}$~', $ymd)) {
+    return $default;
+  }
+  return ($ymd >= CUOTA_MONTO_NUEVO_DESDE) ? (float)CUOTA_MONTO_NUEVO : $default;
+}
+
+function cuotas_total_por_fechas(array $fechas, array $overrideMontos = []): float{
+  $total = 0.0;
+  foreach($fechas as $fecha){
+    if (!is_ymd($fecha)) continue;
+    $monto = $overrideMontos[$fecha] ?? cuota_monto_por_fecha($fecha);
+    $monto = is_numeric($monto) ? (float)$monto : cuota_monto_por_fecha($fecha);
+    if ($monto < 0) $monto = 0.0;
+    $total += $monto;
+  }
+  return $total;
+}
+
 
 /**
  * Devuelve un array de YYYY-MM-DD (día 25) con las cuotas pendientes
@@ -290,5 +313,30 @@ function ensure_pagos_anulacion_columns(PDO $pdo): bool{
     app_log('No se pudo asegurar columna pagos_residentes.anulado_de: '.$e->getMessage());
   }
 
+  return $ok;
+}
+
+function ensure_pagos_detalle_cuotas_column(PDO $pdo): bool{
+  static $checked = false;
+  static $ok = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'detalle_cuotas'");
+    $exists = (bool)($st && $st->fetch());
+    if (!$exists) {
+      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN detalle_cuotas LONGTEXT NULL DEFAULT NULL AFTER meses_pagados");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+    app_log('No se pudo asegurar columna pagos_residentes.detalle_cuotas: '.$e->getMessage());
+  }
+
+  if (!defined('HAS_PAGOS_DETALLE_CUOTAS')) {
+    define('HAS_PAGOS_DETALLE_CUOTAS', $ok);
+  }
   return $ok;
 }
