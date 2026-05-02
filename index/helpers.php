@@ -116,6 +116,39 @@ function cuotas_total_por_fechas(array $fechas, array $overrideMontos = []): flo
   return $total;
 }
 
+function ultimo_vencimiento_actual(): string{
+  $hoy = new DateTime('today');
+  $currentDue = new DateTime($hoy->format('Y-m-' . DUE_DAY));
+  if ($hoy < $currentDue) {
+    $currentDue->modify('-1 month');
+  }
+  return $currentDue->format('Y-m-d');
+}
+
+function meses_retraso_cuota(string $fechaCuota, ?string $fechaCorte=null): int{
+  if (!is_ymd($fechaCuota)) return 0;
+  $fechaCuota = align_due_day($fechaCuota);
+  $fechaCorte = $fechaCorte && is_ymd($fechaCorte) ? align_due_day($fechaCorte) : ultimo_vencimiento_actual();
+
+  $due = new DateTime($fechaCuota);
+  $cutoff = new DateTime($fechaCorte);
+  $months = (((int)$cutoff->format('Y')) - ((int)$due->format('Y'))) * 12;
+  $months += ((int)$cutoff->format('n')) - ((int)$due->format('n'));
+
+  return max(0, $months);
+}
+
+function cuotas_en_mora(array $fechas, int $minMesesRetraso = 2, ?string $fechaCorte=null): array{
+  $out = [];
+  foreach($fechas as $fecha){
+    if (!is_ymd($fecha)) continue;
+    if (meses_retraso_cuota($fecha, $fechaCorte) >= $minMesesRetraso) {
+      $out[] = $fecha;
+    }
+  }
+  return $out;
+}
+
 
 /**
  * Devuelve un array de YYYY-MM-DD (día 25) con las cuotas pendientes
@@ -186,14 +219,7 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
   }
 
   // 2) Determinar último vencimiento (día DUE_DAY) que ya pasó o es hoy
-  $hoy = new DateTime('today');
-  $currentDue = new DateTime($hoy->format('Y-m-' . DUE_DAY));
-  if ($hoy < $currentDue) {
-    // Todavía no se ha llegado al día configurado de este mes -> último vencimiento fue el mes pasado
-    $ultimo_venc = (clone $currentDue)->modify('-1 month');
-  } else {
-    $ultimo_venc = $currentDue;
-  }
+  $ultimo_venc = new DateTime(ultimo_vencimiento_actual());
 
   // Si BASE_DUE está en el futuro, no hay nada pendiente
   $inicio = new DateTime($base);

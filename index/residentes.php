@@ -237,9 +237,9 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $monto_base        = $monto_base_cuotas + $abono_deuda_extra;
 
   $pendientes_totales = cuotas_pendientes_residente($pdo, $id, BASE_DUE);
-  $cantidad_pendientes_totales = count($pendientes_totales);
-  $mora_auto_raw = $cantidad_pendientes_totales > 0
-    ? cuotas_total_por_fechas($pendientes_totales) * MORA_PCT
+  $cuotas_en_mora_totales = cuotas_en_mora($pendientes_totales, 2);
+  $mora_auto_raw = count($cuotas_en_mora_totales) > 0
+    ? cuotas_total_por_fechas($cuotas_en_mora_totales) * MORA_PCT
     : 0.0;
   $mora_manual = toDecimal(body('mora'));
   if ($mora_manual !== null) {
@@ -632,8 +632,9 @@ if ($action==='new' || $action==='pagar') {
   }
 
   // Mora automática según MORA_PCT si hay atrasos
-  $total_pendiente_cuotas = cuotas_total_por_fechas($pendientes);
-  $mora_auto = $cantidad > 0 ? $total_pendiente_cuotas * MORA_PCT : 0.0;
+  $cuotas_en_mora_pendientes = cuotas_en_mora($pendientes, 2);
+  $total_pendiente_cuotas = cuotas_total_por_fechas($cuotas_en_mora_pendientes);
+  $mora_auto = count($cuotas_en_mora_pendientes) > 0 ? $total_pendiente_cuotas * MORA_PCT : 0.0;
   if (!$had_manual_mora) {
     $data['mora'] = number_format($mora_auto, 2, '.', '');
   }
@@ -724,9 +725,9 @@ if ($action==='new' || $action==='pagar') {
             <label class="form-label">Mora (si aplica)</label>
             <input type="text" name="mora" class="form-control"
                    placeholder="0.00" value="<?=e($data['mora'])?>" >
-            <div class="form-text">
-              Por defecto es 2% de las cuotas vencidas, pero puede ajustarlo manualmente.
-            </div>
+	            <div class="form-text">
+	              Por defecto es 10% de las cuotas con 2 o más meses de retraso, pero puede ajustarlo manualmente.
+	            </div>
           </div>
 
           <div class="col-md-3">

@@ -13,4 +13,4 @@ const DUE_DAY     = '05';         // Día del mes en que vence la cuota (ej. '05
 const CUOTA_MONTO = 1000.00;      // RD$ por mes
 const CUOTA_MONTO_NUEVO_DESDE = '2026-05-01'; // Desde esta fecha las nuevas cuotas usan el nuevo monto por defecto
 const CUOTA_MONTO_NUEVO = 1700.00;            // RD$ por mes a partir de la fecha anterior
-const MORA_PCT    = 0.00;         // Porcentaje de mora (ej. 0.02 = 2%)
+const MORA_PCT    = 0.10;         // 10% de mora sobre cuotas con 2 o más meses de retraso
