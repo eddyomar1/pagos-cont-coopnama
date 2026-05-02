@@ -417,7 +417,7 @@ if ($action === 'print') {
               <td><?= e($r['edif_apto']) ?></td>
               <td><?= e($r['nombres_apellidos']) ?></td>
               <td><?= e(format_cedula($r['cedula'])) ?></td>
-              <td><?= e($r['telefono']) ?></td>
+              <td><?= telefono_whatsapp_html($r['telefono']) ?></td>
               <td class="text-center"><?= residentes_icono_estado((bool)$r['_tiene_deuda'], (int)$r['_meses_adeudados'], (bool)$r['_tiene_deuda_extra']) ?></td>
             </tr>
           <?php endforeach; ?>
@@ -524,7 +524,7 @@ if ($action === 'index') {
               <td><?= e($r['edif_apto']) ?></td>
               <td><?= e($r['nombres_apellidos']) ?></td>
               <td><?= e(format_cedula($r['cedula'])) ?></td>
-              <td><?= e($r['telefono']) ?></td>
+              <td><?= telefono_whatsapp_html($r['telefono']) ?></td>
               <td class="text-center"><?= $estado_icono ?></td>
               <td class="text-center">
                 <a class="btn btn-primary btn-sm"

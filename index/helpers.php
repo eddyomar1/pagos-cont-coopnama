@@ -11,6 +11,37 @@ function format_cedula($d){
   return strlen($d)===11 ? substr($d,0,3).'-'.substr($d,3,7).'-'.substr($d,10,1) : $d;
 }
 
+function telefono_whatsapp_url($telefono): ?string{
+  $digits = digits_only($telefono);
+  if ($digits === '') return null;
+
+  // Republica Dominicana: numeros locales de 10 digitos usan prefijo 1 para WhatsApp.
+  if (strlen($digits) === 10) {
+    $digits = '1'.$digits;
+  }
+
+  if (strlen($digits) < 11) {
+    return null;
+  }
+
+  return 'https://wa.me/'.$digits;
+}
+
+function telefono_whatsapp_html($telefono): string{
+  $telefono = trim((string)$telefono);
+  if ($telefono === '') {
+    return '';
+  }
+
+  $url = telefono_whatsapp_url($telefono);
+  $label = e($telefono);
+  if ($url === null) {
+    return $label;
+  }
+
+  return '<a href="'.e($url).'" target="_blank" rel="noopener" class="text-decoration-none" title="Contactar por WhatsApp">'.$label.'</a>';
+}
+
 function cedula_valida($digits){
   $d = digits_only($digits);
   if(strlen($d)!==11) return false;
