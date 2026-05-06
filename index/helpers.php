@@ -188,7 +188,8 @@ function cuotas_en_mora(array $fechas, int $minMesesRetraso = 2, ?string $fechaC
  * (incluyendo pagos adelantados).
  */
 function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=null){
-  // Fecha base: preferimos la fecha_x_pagar del residente; si no, BASE_DUE.
+  // Fecha base: usamos la fecha_x_pagar del residente, pero si en el historial
+  // existen cuotas más antiguas (pagadas o anuladas), arrancamos desde la más antigua.
   try{
     $stBase = $pdo->prepare("SELECT fecha_x_pagar FROM residentes WHERE id = ? LIMIT 1");
     $stBase->execute([$residenteId]);
@@ -196,15 +197,14 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
   }catch(Throwable $e){
     $fechaBaseRow = null;
   }
+  $baseCandidata = null;
   if ($fechaBaseRow && preg_match('~^\d{4}-\d{2}-\d{2}$~', (string)$fechaBaseRow)) {
-    $base = $fechaBaseRow;
-  } elseif ($base === null) {
-    $base = BASE_DUE;
+    $baseCandidata = align_due_day((string)$fechaBaseRow);
+  } elseif ($base !== null) {
+    $baseCandidata = align_due_day((string)$base);
+  } else {
+    $baseCandidata = align_due_day(BASE_DUE);
   }
-  // Forzamos día configurable para los vencimientos
-  $baseObj = new DateTime($base);
-  $baseObj->setDate($baseObj->format('Y'), $baseObj->format('m'), (int)DUE_DAY);
-  $base = $baseObj->format('Y-m-d');
 
   // Si está exonerado, no generar pendientes hasta que se reactive
   try{
@@ -231,6 +231,7 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
   }
 
   $pagados = []; // ymd => int (conteo neto)
+  $primeraCuotaHistorica = null;
   while($row = $st->fetch()){
     if (empty($row['meses_pagados'])) continue;
     $arr = json_decode($row['meses_pagados'], true);
@@ -245,9 +246,20 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
       if (is_ymd($d)) {
         $norm = align_due_day($d);
         $pagados[$norm] = ($pagados[$norm] ?? 0) + $delta;
+        if ($primeraCuotaHistorica === null || strcmp($norm, $primeraCuotaHistorica) < 0) {
+          $primeraCuotaHistorica = $norm;
+        }
       }
     }
   }
+
+  if ($primeraCuotaHistorica !== null && strcmp($primeraCuotaHistorica, $baseCandidata) < 0) {
+    $baseCandidata = $primeraCuotaHistorica;
+  }
+  if (strcmp($baseCandidata, align_due_day(BASE_DUE)) < 0) {
+    $baseCandidata = align_due_day(BASE_DUE);
+  }
+  $base = $baseCandidata;
 
   // 2) Determinar último vencimiento (día DUE_DAY) que ya pasó o es hoy
   $ultimo_venc = new DateTime(ultimo_vencimiento_actual());

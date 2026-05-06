@@ -150,6 +150,18 @@ if (!defined('CUOTA_MONTO')) {
  * Copia ligera de la lógica principal para no duplicar includes.
  */
 function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $base): array{
+  try{
+    $stBase = $pdo->prepare("SELECT fecha_x_pagar FROM residentes WHERE id = ? LIMIT 1");
+    $stBase->execute([$residenteId]);
+    $fechaBaseRow = $stBase->fetchColumn();
+  }catch(Throwable $e){
+    $fechaBaseRow = null;
+  }
+  $baseCandidata = $base;
+  if ($fechaBaseRow && preg_match('~^\d{4}-\d{2}-\d{2}$~', (string)$fechaBaseRow)) {
+    $baseCandidata = align_due_day_local((string)$fechaBaseRow);
+  }
+
   // Detener cálculo si está exonerado
   try{
     $chk = $pdo->prepare("SELECT exonerado FROM residentes WHERE id = ? LIMIT 1");
@@ -171,6 +183,7 @@ function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $b
     $st->execute([$residenteId]);
   }
   $pagados = []; // ymd => int neto
+  $primeraCuotaHistorica = null;
   while($row = $st->fetch()){
     $arr = json_decode($row['meses_pagados'] ?? '[]', true);
     if (!is_array($arr)) continue;
@@ -184,8 +197,18 @@ function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $b
       if (is_ymd($d)) {
         $k = align_due_day_local($d);
         $pagados[$k] = ($pagados[$k] ?? 0) + $delta;
+        if ($primeraCuotaHistorica === null || strcmp($k, $primeraCuotaHistorica) < 0) {
+          $primeraCuotaHistorica = $k;
+        }
       }
     }
+  }
+
+  if ($primeraCuotaHistorica !== null && strcmp($primeraCuotaHistorica, $baseCandidata) < 0) {
+    $baseCandidata = $primeraCuotaHistorica;
+  }
+  if (strcmp($baseCandidata, align_due_day_local(BASE_DUE)) < 0) {
+    $baseCandidata = align_due_day_local(BASE_DUE);
   }
 
   $hoy = new DateTime('today');
@@ -194,7 +217,7 @@ function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $b
     $ultimo_venc->modify('-1 month');
   }
 
-  $inicio = new DateTime($base);
+  $inicio = new DateTime($baseCandidata);
   $inicio->setDate($inicio->format('Y'), $inicio->format('m'), (int)DUE_DAY);
   if ($inicio > $ultimo_venc) return [];
 
