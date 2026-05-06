@@ -241,9 +241,11 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $mora_auto_raw = count($cuotas_en_mora_totales) > 0
     ? cuotas_total_por_fechas($cuotas_en_mora_totales) * MORA_PCT
     : 0.0;
-  $mora_manual = toDecimal(body('mora'));
-  if ($mora_manual !== null) {
-    $mora_raw = max(0.0, (float)$mora_manual);
+  $mora_enviada = array_key_exists('mora', $_POST);
+  $mora_manual_raw = $mora_enviada ? trim((string)$_POST['mora']) : '';
+  $mora_manual = toDecimal($mora_manual_raw);
+  if ($mora_enviada) {
+    $mora_raw = ($mora_manual !== null) ? max(0.0, (float)$mora_manual) : 0.0;
   } else {
     $mora_raw = $mora_auto_raw;
   }
@@ -605,7 +607,7 @@ if ($action==='new' || $action==='pagar') {
   }
   $errors=$_SESSION['errors'] ?? [];
   $old_mora_manual = isset($old_inputs['mora']) ? trim((string)$old_inputs['mora']) : '';
-  $had_manual_mora = $old_mora_manual !== '';
+  $had_manual_mora = array_key_exists('mora', $old_inputs);
   $old_due_amounts = isset($old_inputs['due_amounts']) && is_array($old_inputs['due_amounts'])
     ? $old_inputs['due_amounts'] : [];
   $_SESSION['old']=$_SESSION['errors']=null;
@@ -637,6 +639,8 @@ if ($action==='new' || $action==='pagar') {
   $mora_auto = count($cuotas_en_mora_pendientes) > 0 ? $total_pendiente_cuotas * MORA_PCT : 0.0;
   if (!$had_manual_mora) {
     $data['mora'] = number_format($mora_auto, 2, '.', '');
+  } elseif ($old_mora_manual === '') {
+    $data['mora'] = '0.00';
   }
 
   // Deuda extra actual (desde BD)
