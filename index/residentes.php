@@ -408,6 +408,7 @@ if ($action === 'print') {
 if ($action === 'index') {
   // Filtro por estado: pendientes (default) o pagados
   $status = $_GET['status'] ?? 'pendientes';
+  $q = trim((string)($_GET['q'] ?? ''));
 
   $current_section = 'residentes';
   render_header('Residentes','residentes');
@@ -418,7 +419,7 @@ if ($action === 'index') {
     app_log('Error listando residentes '.$status.': '.$e->getMessage());
     $rows = [];
   }
-  $rows = residentes_filtrados($pdo, $rows, $status);
+  $rows = residentes_filtrados($pdo, $rows, $status, $q);
 
   if(isset($_GET['saved']))   echo '<div class="alert alert-success">Registro agregado.</div>';
   if(isset($_GET['updated'])) echo '<div class="alert alert-info">Pago registrado.</div>';
@@ -468,6 +469,12 @@ if ($action === 'index') {
     <div class="card-body">
       <div class="d-flex align-items-center gap-2 mb-3">
         <h5 class="mb-0">LISTA DE COPROPIETARIOS</h5>
+      </div>
+      <div class="text-muted small mb-3">
+        <?= $status === 'pagados' ? 'Solo copropietarios al día' : 'Solo copropietarios con deuda' ?>
+        <?php if ($q !== ''): ?>
+          | Filtro de búsqueda: "<?= e($q) ?>"
+        <?php endif; ?>
       </div>
       <div class="table-responsive">
         <table id="tabla" class="table table-striped table-bordered align-middle table-nowrap">
