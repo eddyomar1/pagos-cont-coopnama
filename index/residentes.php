@@ -284,46 +284,20 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     ]);
 
     // Registrar pago detallado
-    $detalle_cuotas_json = json_encode($selected_due_amounts, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
     $observaciones = $abono_deuda_extra > 0
       ? 'Incluye abono a deuda extra de RD$ '.number_format($abono_deuda_extra,2,'.','')
       : null;
-    if (defined('HAS_PAGOS_DETALLE_CUOTAS') && HAS_PAGOS_DETALLE_CUOTAS) {
-      $stmt2 = $pdo->prepare(
-        "INSERT INTO pagos_residentes
-         (residente_id, fecha_recibo, fecha_pagada, meses_pagados, detalle_cuotas,
-          monto_base, mora, total, observaciones)
-         VALUES (?,?,?,?,?,?,?,?,?)"
-      );
-      $stmt2->execute([
-        $id,
-        date('Y-m-d H:i:s'),
-        $fecha_pagada,
-        json_encode($selected_dues, JSON_UNESCAPED_UNICODE),
-        $detalle_cuotas_json,
-        $monto_base,
-        $mora,
-        $monto_base + $mora,
-        $observaciones
-      ]);
-    } else {
-      $stmt2 = $pdo->prepare(
-        "INSERT INTO pagos_residentes
-         (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
-          monto_base, mora, total, observaciones)
-         VALUES (?,?,?,?,?,?,?,?)"
-      );
-      $stmt2->execute([
-        $id,
-        date('Y-m-d H:i:s'),
-        $fecha_pagada,
-        json_encode($selected_dues, JSON_UNESCAPED_UNICODE),
-        $monto_base,
-        $mora,
-        $monto_base + $mora,
-        $observaciones
-      ]);
-    }
+
+    insertar_pago_con_lineas(
+      $pdo,
+      $id,
+      $selected_dues,
+      $selected_due_amounts,
+      $monto_base,
+      $mora,
+      $fecha_pagada,
+      $observaciones
+    );
 
     $pdo->commit();
     header('Location:index.php?updated=1'); exit;

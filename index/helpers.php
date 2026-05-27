@@ -385,6 +385,136 @@ function ensure_pagos_anulacion_columns(PDO $pdo): bool{
   return $ok;
 }
 
+function ensure_pagos_cantidad_meses_column(PDO $pdo): bool{
+  static $checked = false;
+  static $ok = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'cantidad_meses'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN cantidad_meses INT NOT NULL DEFAULT 0 AFTER fecha_pagada");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+    app_log('No se pudo asegurar columna pagos_residentes.cantidad_meses: '.$e->getMessage());
+  }
+
+  return $ok;
+}
+
+function ensure_pagos_lineas_table(PDO $pdo): bool{
+  static $checked = false;
+  static $ok = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+
+  try{
+    $st = $pdo->query("SHOW TABLES LIKE 'pagos_residentes_lineas'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec(
+        "CREATE TABLE pagos_residentes_lineas (
+           id INT AUTO_INCREMENT PRIMARY KEY,
+           pago_id INT NOT NULL,
+           mes_vencimiento DATE NOT NULL,
+           monto DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+           mora_linea DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+           anulado_de INT NULL DEFAULT NULL,
+           INDEX idx_pago_id (pago_id),
+           INDEX idx_mes_vencimiento (mes_vencimiento),
+           UNIQUE KEY ux_pago_mes (pago_id, mes_vencimiento)
+         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+      );
+    }
+  }catch(Throwable $e){
+    $ok = false;
+    app_log('No se pudo asegurar tabla pagos_residentes_lineas: '.$e->getMessage());
+  }
+
+  return $ok;
+}
+
+function insertar_pago_con_lineas(
+  PDO $pdo,
+  int $residenteId,
+  array $selected_dues,
+  array $selected_due_amounts,
+  float $monto_base,
+  float $mora,
+  string $fecha_pagada,
+  ?string $observaciones = null
+): int {
+  $selected_dues = array_values(array_filter($selected_dues, 'is_ymd'));
+  sort($selected_dues);
+
+  $meses_pagados_json = json_encode($selected_dues, JSON_UNESCAPED_UNICODE);
+  $detalle_cuotas_json = json_encode($selected_due_amounts, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+  $cantidad_meses = count($selected_dues);
+
+  if (defined('HAS_PAGOS_DETALLE_CUOTAS') && HAS_PAGOS_DETALLE_CUOTAS) {
+    $stmt = $pdo->prepare(
+      "INSERT INTO pagos_residentes
+       (residente_id, fecha_recibo, fecha_pagada, cantidad_meses,
+        meses_pagados, detalle_cuotas, monto_base, mora, total, observaciones)
+       VALUES (?,?,?,?,?,?,?,?,?,?)"
+    );
+    $stmt->execute([
+      $residenteId,
+      date('Y-m-d H:i:s'),
+      $fecha_pagada,
+      $cantidad_meses,
+      $meses_pagados_json,
+      $detalle_cuotas_json,
+      $monto_base,
+      $mora,
+      $monto_base + $mora,
+      $observaciones
+    ]);
+  } else {
+    $stmt = $pdo->prepare(
+      "INSERT INTO pagos_residentes
+       (residente_id, fecha_recibo, fecha_pagada, cantidad_meses,
+        meses_pagados, monto_base, mora, total, observaciones)
+       VALUES (?,?,?,?,?,?,?,?,?)"
+    );
+    $stmt->execute([
+      $residenteId,
+      date('Y-m-d H:i:s'),
+      $fecha_pagada,
+      $cantidad_meses,
+      $meses_pagados_json,
+      $monto_base,
+      $mora,
+      $monto_base + $mora,
+      $observaciones
+    ]);
+  }
+
+  $pagoId = (int)$pdo->lastInsertId();
+
+  if ($cantidad_meses > 0) {
+    $stmtLine = $pdo->prepare(
+      "INSERT INTO pagos_residentes_lineas
+       (pago_id, mes_vencimiento, monto, mora_linea)
+       VALUES (?,?,?,?)"
+    );
+    foreach ($selected_dues as $index => $mes) {
+      $monto_linea = isset($selected_due_amounts[$mes]) && is_numeric($selected_due_amounts[$mes])
+        ? (float)$selected_due_amounts[$mes]
+        : cuota_monto_por_fecha($mes);
+      $mora_linea = ($index === 0) ? $mora : 0.0;
+      $stmtLine->execute([$pagoId, $mes, $monto_linea, $mora_linea]);
+    }
+  }
+
+  return $pagoId;
+}
+
 function ensure_pagos_detalle_cuotas_column(PDO $pdo): bool{
   static $checked = false;
   static $ok = false;
