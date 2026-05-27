@@ -341,13 +341,6 @@ if ($action === 'print') {
   $rows = residentes_filtrados($pdo, $rows, $status, $q);
   ?>
   <style>
-    .print-list-link{
-      color:inherit;
-      text-decoration:none;
-    }
-    .print-list-link:hover{
-      color:inherit;
-    }
     @media print{
       .topbar,.sidebar,.sidebar-backdrop,.print-actions{display:none !important;}
       .content{margin-left:0 !important;padding:0 !important;}
@@ -426,7 +419,6 @@ if ($action === 'index') {
     $rows = [];
   }
   $rows = residentes_filtrados($pdo, $rows, $status);
-  $printUrl = 'index.php?page=residentes&action=print&status='.urlencode($status);
 
   if(isset($_GET['saved']))   echo '<div class="alert alert-success">Registro agregado.</div>';
   if(isset($_GET['updated'])) echo '<div class="alert alert-info">Pago registrado.</div>';
@@ -457,6 +449,15 @@ if ($action === 'index') {
             <a class="btn btn-sm <?= $status==='pendientes'?'btn-primary':'btn-outline-primary' ?>" href="index.php?page=residentes&status=pendientes">Pendientes</a>
             <a class="btn btn-sm <?= $status==='pagados'?'btn-primary':'btn-outline-primary' ?>" href="index.php?page=residentes&status=pagados">Pagados</a>
           </div>
+          <button 
+            type="button" 
+            class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 print-list-btn"
+            id="printListBtn"
+            title="Imprimir lista de copropietarios con filtros aplicados"
+          >
+            <i class="bi bi-printer"></i>
+            <span>Imprimir</span>
+          </button>
         </div>
       </div>
     </div>
@@ -466,17 +467,7 @@ if ($action === 'index') {
   <div class="card">
     <div class="card-body">
       <div class="d-flex align-items-center gap-2 mb-3">
-        <a
-          href="<?= e($printUrl) ?>"
-          class="print-list-link d-inline-flex align-items-center gap-2 text-decoration-none text-body-emphasis"
-          data-print-base="<?= e($printUrl) ?>"
-          target="_blank"
-          rel="noopener"
-          title="Imprimir lista de copropietarios"
-        >
-          <h5 class="mb-0">LISTA DE COPROPIETARIOS</h5>
-          <i class="bi bi-printer fs-5"></i>
-        </a>
+        <h5 class="mb-0">LISTA DE COPROPIETARIOS</h5>
       </div>
       <div class="table-responsive">
         <table id="tabla" class="table table-striped table-bordered align-middle table-nowrap">
@@ -517,21 +508,22 @@ if ($action === 'index') {
   </div>
 
   <script>
-  document.addEventListener('click', function(ev){
-    var link = ev.target.closest('.print-list-link[data-print-base]');
-    if (!link) return;
-    var base = link.getAttribute('data-print-base') || link.getAttribute('href') || '';
-    if (!base) return;
-
-    var url = new URL(base, window.location.href);
-    var searchInput = document.getElementById('globalSearch');
-    var q = searchInput ? String(searchInput.value || '').trim() : '';
-    if (q !== '') {
-      url.searchParams.set('q', q);
-    } else {
-      url.searchParams.delete('q');
-    }
-    link.setAttribute('href', url.toString());
+  document.addEventListener('DOMContentLoaded', function(){
+    var printBtn = document.getElementById('printListBtn');
+    if (!printBtn) return;
+    
+    printBtn.addEventListener('click', function(){
+      var base = 'index.php?page=residentes&action=print&status=<?= urlencode($status) ?>';
+      var url = new URL(base, window.location.href);
+      var searchInput = document.getElementById('globalSearch');
+      var q = searchInput ? String(searchInput.value || '').trim() : '';
+      if (q !== '') {
+        url.searchParams.set('q', q);
+      } else {
+        url.searchParams.delete('q');
+      }
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    });
   });
   </script>
 
