@@ -11,6 +11,7 @@ $data=[
   'telefono'=>'',
   'deuda_inicial'=>'0.00',
   'deuda_extra'=>'0.00',
+  'cuota_mensual'=>'',
   'fecha_x_pagar'=>'',
   'fecha_pagada'=>'',
   'mora'=>'',
@@ -46,6 +47,14 @@ if ($editing && !empty($data['id'])) {
 }
 $exonerado = $editing && !empty($data['exonerado']);
 $exoneradoDesde = $exonerado && !empty($data['exonerado_desde']) ? $data['exonerado_desde'] : null;
+$inicioPagoFecha = !empty($data['fecha_x_pagar']) && is_ymd($data['fecha_x_pagar'])
+  ? $data['fecha_x_pagar']
+  : date('Y-m-'.DUE_DAY);
+$inicioPagoMes = substr($inicioPagoFecha, 0, 7);
+$cuotaMensualCustom = isset($data['cuota_mensual']) && is_numeric($data['cuota_mensual']) && (float)$data['cuota_mensual'] > 0
+  ? (float)$data['cuota_mensual']
+  : null;
+$cuotaMensualSugerida = cuota_monto_por_fecha_local($inicioPagoFecha);
 
 header_html($editing?'Editar residente':'Agregar residente');
 ?>
@@ -103,15 +112,37 @@ header_html($editing?'Editar residente':'Agregar residente');
 
     <?php if($hasDeudaInicial): ?>
       <hr class="my-4 border-2 border-primary opacity-75">
-      <div class="row g-3 mt-2 justify-content-end align-items-start">
-        <div class="col-md-3 order-md-1 text-md-end">
+      <div class="row g-3 mt-2 align-items-start">
+        <div class="col-md-3">
+          <label class="form-label">Mes/Año inicio de pago</label>
+          <input
+            type="month"
+            name="inicio_pago_mes"
+            class="form-control"
+            value="<?= e($inicioPagoMes) ?>"
+          >
+          <input type="hidden" name="fecha_x_pagar" value="<?= e($inicioPagoFecha) ?>">
+          <div class="form-text">Desde este mes se empezarán a generar las cuotas.</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Monto mensual</label>
+          <input
+            type="text"
+            name="cuota_mensual"
+            class="form-control"
+            placeholder="<?= e(number_format($cuotaMensualSugerida,2,'.','')) ?>"
+            value="<?= e($cuotaMensualCustom !== null ? number_format($cuotaMensualCustom,2,'.','') : '') ?>"
+          >
+          <div class="form-text">Déjalo vacío para usar el monto global según la fecha.</div>
+        </div>
+        <div class="col-md-3 ms-md-auto text-md-end">
           <label class="form-label">Deuda inicial</label>
           <input type="text" name="deuda_inicial" class="form-control"
                  placeholder="0.00"
                  value="<?= e(number_format((float)$data['deuda_inicial'],2,'.','')) ?>">
           <div class="form-text">Al crear un residente, este valor se copia a la deuda actual.</div>
         </div>
-        <div class="col-md-3 order-md-2 text-md-end">
+        <div class="col-md-3 text-md-end">
           <label class="form-label">Deuda actual</label>
           <input type="text" name="deuda_extra" class="form-control"
                  placeholder="0.00"

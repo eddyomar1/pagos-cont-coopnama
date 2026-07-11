@@ -135,12 +135,40 @@ function cuota_monto_por_fecha(string $ymd): float{
   return ($ymd >= CUOTA_MONTO_NUEVO_DESDE) ? (float)CUOTA_MONTO_NUEVO : $default;
 }
 
+function cuota_monto_residente(PDO $pdo, int $residenteId, string $ymd): float{
+  static $cache = [];
+  if (!array_key_exists($residenteId, $cache)) {
+    try{
+      $st = $pdo->prepare("SELECT cuota_mensual FROM residentes WHERE id = ? LIMIT 1");
+      $st->execute([$residenteId]);
+      $value = $st->fetchColumn();
+      $cache[$residenteId] = is_numeric($value) && (float)$value > 0 ? (float)$value : null;
+    }catch(Throwable $e){
+      $cache[$residenteId] = null;
+    }
+  }
+
+  return $cache[$residenteId] !== null ? (float)$cache[$residenteId] : cuota_monto_por_fecha($ymd);
+}
+
 function cuotas_total_por_fechas(array $fechas, array $overrideMontos = []): float{
   $total = 0.0;
   foreach($fechas as $fecha){
     if (!is_ymd($fecha)) continue;
     $monto = $overrideMontos[$fecha] ?? cuota_monto_por_fecha($fecha);
     $monto = is_numeric($monto) ? (float)$monto : cuota_monto_por_fecha($fecha);
+    if ($monto < 0) $monto = 0.0;
+    $total += $monto;
+  }
+  return $total;
+}
+
+function cuotas_total_residente_por_fechas(PDO $pdo, int $residenteId, array $fechas, array $overrideMontos = []): float{
+  $total = 0.0;
+  foreach($fechas as $fecha){
+    if (!is_ymd($fecha)) continue;
+    $monto = $overrideMontos[$fecha] ?? cuota_monto_residente($pdo, $residenteId, $fecha);
+    $monto = is_numeric($monto) ? (float)$monto : cuota_monto_residente($pdo, $residenteId, $fecha);
     if ($monto < 0) $monto = 0.0;
     $total += $monto;
   }
@@ -415,6 +443,29 @@ function ensure_exonerado_columns(PDO $pdo): bool{
   return $ok;
 }
 
+function ensure_residente_cuota_mensual_column(PDO $pdo): bool{
+  static $checked = false;
+  static $ok      = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'cuota_mensual'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN cuota_mensual DECIMAL(10,2) NULL DEFAULT NULL AFTER deuda_extra");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+    app_log('No se pudo asegurar columna residentes.cuota_mensual: '.$e->getMessage());
+  }
+
+  if (!defined('HAS_CUOTA_MENSUAL')) {
+    define('HAS_CUOTA_MENSUAL', $ok);
+  }
+  return $ok;
+}
+
 /**
  * Asegura columnas para anulación de pagos (tipo/anulado_de) en pagos_residentes.
  * Esto permite crear un registro inverso y mantener historial sin borrar.
@@ -520,13 +571,13 @@ function insertar_pago_con_lineas(
   sort($selected_dues);
 
   $pagos = [];
-  $totalCuotas = cuotas_total_por_fechas($selected_dues, $selected_due_amounts);
+  $totalCuotas = cuotas_total_residente_por_fechas($pdo, $residenteId, $selected_dues, $selected_due_amounts);
   $extra = max(0.0, $monto_base - $totalCuotas);
 
   foreach ($selected_dues as $mes) {
     $montoMes = isset($selected_due_amounts[$mes]) && is_numeric($selected_due_amounts[$mes])
       ? max(0.0, (float)$selected_due_amounts[$mes])
-      : cuota_monto_por_fecha($mes);
+      : cuota_monto_residente($pdo, $residenteId, $mes);
     $pagos[] = [
       'meses' => [$mes],
       'detalle' => [$mes => $montoMes],

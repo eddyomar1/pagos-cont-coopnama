@@ -140,11 +140,15 @@ $(function(){
   var cuotaMonto = parseFloat($('#cuotaMonto').val() || '1000');
   var cuotaMontoNuevo = parseFloat($('#cuotaMontoNuevo').val() || cuotaMonto);
   var cuotaMontoNuevoDesde = ($('#cuotaMontoNuevoDesde').val() || '').trim();
+  var cuotaMontoResidente = parseFloat($('#cuotaMontoResidente').val() || '');
   if (isNaN(cuotaMonto) || cuotaMonto <= 0) {
     cuotaMonto = 1000;
   }
   if (isNaN(cuotaMontoNuevo) || cuotaMontoNuevo <= 0) {
     cuotaMontoNuevo = cuotaMonto;
+  }
+  if (isNaN(cuotaMontoResidente) || cuotaMontoResidente <= 0) {
+    cuotaMontoResidente = null;
   }
 
   function parseMoney(value){
@@ -164,6 +168,9 @@ $(function(){
   }
 
   function defaultDueAmount(dateStr){
+    if (cuotaMontoResidente !== null) {
+      return cuotaMontoResidente;
+    }
     if (cuotaMontoNuevoDesde && dateStr && dateStr >= cuotaMontoNuevoDesde) {
       return cuotaMontoNuevo;
     }

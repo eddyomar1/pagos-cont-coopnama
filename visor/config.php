@@ -104,6 +104,28 @@ function ensure_exonerado_columns(PDO $pdo): bool{
   return $ok;
 }
 
+function ensure_residente_cuota_mensual_column(PDO $pdo): bool{
+  static $checked = false;
+  static $ok      = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'cuota_mensual'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN cuota_mensual DECIMAL(10,2) NULL DEFAULT NULL AFTER deuda_extra");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+  }
+
+  if (!defined('HAS_CUOTA_MENSUAL')) {
+    define('HAS_CUOTA_MENSUAL', $ok);
+  }
+  return $ok;
+}
+
 /**
  * Asegura columnas para anulación de pagos (tipo/anulado_de) en pagos_residentes.
  */
@@ -132,6 +154,7 @@ $action = $_GET['action'] ?? 'full';
 
 ensure_deuda_inicial_column($pdo);
 ensure_exonerado_columns($pdo);
+ensure_residente_cuota_mensual_column($pdo);
 ensure_pagos_anulacion_columns_local($pdo);
 
 // Config de cuotas (coincide con la app principal)
@@ -143,6 +166,19 @@ if (!defined('DUE_DAY')) {
 }
 if (!defined('CUOTA_MONTO')) {
   define('CUOTA_MONTO', 1000.00);
+}
+if (!defined('CUOTA_MONTO_NUEVO_DESDE')) {
+  define('CUOTA_MONTO_NUEVO_DESDE', '2026-05-01');
+}
+if (!defined('CUOTA_MONTO_NUEVO')) {
+  define('CUOTA_MONTO_NUEVO', 1700.00);
+}
+
+function cuota_monto_por_fecha_local(string $ymd): float{
+  if (!preg_match('~^\d{4}-\d{2}-\d{2}$~', $ymd)) {
+    return (float)CUOTA_MONTO;
+  }
+  return ($ymd >= CUOTA_MONTO_NUEVO_DESDE) ? (float)CUOTA_MONTO_NUEVO : (float)CUOTA_MONTO;
 }
 
 function pago_delta_desde_row_local(array $row): int{

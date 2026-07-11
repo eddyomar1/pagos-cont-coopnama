@@ -129,7 +129,11 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $telefono          = body('telefono');
   $deuda_extra       = toDecimal(body('deuda_extra')) ?? 0;
   $deuda_inicial     = $deuda_extra;
-  $fecha_x_pagar     = date('Y-m-05'); // primer cobro en el mes de alta (día 5)
+  $inicio_pago_mes   = body('inicio_pago_mes');
+  $fecha_x_pagar     = preg_match('~^\d{4}-\d{2}$~', $inicio_pago_mes)
+    ? $inicio_pago_mes.'-'.DUE_DAY
+    : date('Y-m-'.DUE_DAY);
+  $cuota_mensual     = toDecimal(body('cuota_mensual'));
 
   $errors=[];
   if(!required($edif_apto))         $errors[]="Edif/Apto es obligatorio.";
@@ -149,8 +153,8 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
       $stmt=$pdo->prepare(
         "INSERT INTO residentes
          (edif_apto,nombres_apellidos,cedula,codigo,telefono,
-          fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_inicial,deuda_extra,no_recurrente)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)"
+          fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_inicial,deuda_extra,cuota_mensual,no_recurrente)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0)"
       );
       $stmt->execute([
         $edif_apto,
@@ -160,14 +164,15 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
         $telefono ?: null,
         $fecha_x_pagar,null,0,0,0,
         $deuda_inicial,
-        $deuda_extra
+        $deuda_extra,
+        $cuota_mensual
       ]);
     } else {
       $stmt=$pdo->prepare(
         "INSERT INTO residentes
          (edif_apto,nombres_apellidos,cedula,codigo,telefono,
-          fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_extra,no_recurrente)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,0)"
+          fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_extra,cuota_mensual,no_recurrente)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)"
       );
       $stmt->execute([
         $edif_apto,
@@ -176,7 +181,8 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
         $codigo ?: null,
         $telefono ?: null,
         $fecha_x_pagar,null,0,0,0,
-        $deuda_extra
+        $deuda_extra,
+        $cuota_mensual
       ]);
     }
     header('Location:index.php?saved=1'); exit;
@@ -237,7 +243,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   foreach($selected_dues as $dueDate){
     $rawAmount = $due_amounts_post[$dueDate] ?? null;
     $parsedAmount = $rawAmount !== null ? toDecimal((string)$rawAmount) : null;
-    $amount = $parsedAmount !== null ? (float)$parsedAmount : cuota_monto_por_fecha($dueDate);
+    $amount = $parsedAmount !== null ? (float)$parsedAmount : cuota_monto_residente($pdo, $id, $dueDate);
     if ($amount < 0) $amount = 0.0;
     $selected_due_amounts[$dueDate] = $amount;
   }
@@ -278,13 +284,13 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   }
 
   // Monto base = suma de cuotas seleccionadas + abono deuda extra
-  $monto_base_cuotas = cuotas_total_por_fechas($selected_dues, $selected_due_amounts);
+  $monto_base_cuotas = cuotas_total_residente_por_fechas($pdo, $id, $selected_dues, $selected_due_amounts);
   $monto_base        = $monto_base_cuotas + $abono_deuda_extra;
 
   $pendientes_totales = cuotas_pendientes_residente($pdo, $id, BASE_DUE);
   $cuotas_en_mora_totales = cuotas_en_mora($pendientes_totales, 2);
   $mora_auto_raw = count($cuotas_en_mora_totales) > 0
-    ? cuotas_total_por_fechas($cuotas_en_mora_totales) * MORA_PCT
+    ? cuotas_total_residente_por_fechas($pdo, $id, $cuotas_en_mora_totales) * MORA_PCT
     : 0.0;
   $mora_enviada = array_key_exists('mora', $_POST);
   $mora_manual_raw = $mora_enviada ? trim((string)$_POST['mora']) : '';
@@ -618,6 +624,7 @@ if ($action==='new' || $action==='pagar') {
     'monto_pagado'=>'0.00',
     'deuda_extra'=>'0.00',
     'deuda_inicial'=>'0.00',
+    'cuota_mensual'=>'',
     'no_recurrente'=>0
   ];
 
@@ -668,7 +675,9 @@ if ($action==='new' || $action==='pagar') {
 
   // Mora automática según MORA_PCT si hay atrasos
   $cuotas_en_mora_pendientes = cuotas_en_mora($pendientes, 2);
-  $total_pendiente_cuotas = cuotas_total_por_fechas($cuotas_en_mora_pendientes);
+  $total_pendiente_cuotas = $editing
+    ? cuotas_total_residente_por_fechas($pdo, (int)$data['id'], $cuotas_en_mora_pendientes)
+    : cuotas_total_por_fechas($cuotas_en_mora_pendientes);
   $mora_auto = count($cuotas_en_mora_pendientes) > 0 ? $total_pendiente_cuotas * MORA_PCT : 0.0;
   if (!$had_manual_mora) {
     $data['mora'] = number_format($mora_auto, 2, '.', '');
@@ -864,7 +873,7 @@ if ($action==='new' || $action==='pagar') {
 	            <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-2" id="dueList">
 		              <?php foreach($pendientes as $i=>$venc): $label=fecha_larga_es($venc); ?>
                     <?php
-                      $defaultAmount = cuota_monto_por_fecha($venc);
+                      $defaultAmount = cuota_monto_residente($pdo, (int)$data['id'], $venc);
                       $customAmount = isset($old_due_amounts[$venc]) ? toDecimal((string)$old_due_amounts[$venc]) : null;
                       $dueAmount = $customAmount !== null ? (float)$customAmount : $defaultAmount;
                       $editableDueAmount = $venc >= CUOTA_MONTO_NUEVO_DESDE;
@@ -913,6 +922,7 @@ if ($action==='new' || $action==='pagar') {
 	        <input type="hidden" id="cuotaMonto" value="<?= number_format(CUOTA_MONTO,2,'.','') ?>">
             <input type="hidden" id="cuotaMontoNuevo" value="<?= number_format(CUOTA_MONTO_NUEVO,2,'.','') ?>">
             <input type="hidden" id="cuotaMontoNuevoDesde" value="<?= e(CUOTA_MONTO_NUEVO_DESDE) ?>">
+            <input type="hidden" id="cuotaMontoResidente" value="<?= e(!empty($data['cuota_mensual']) && (float)$data['cuota_mensual'] > 0 ? number_format((float)$data['cuota_mensual'],2,'.','') : '') ?>">
 	        <?php if ($editing && $next_future_due): ?>
 	          <input
             type="hidden"
