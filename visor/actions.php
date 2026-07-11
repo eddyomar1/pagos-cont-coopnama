@@ -15,20 +15,7 @@ if ($action === 'exonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
   try{
     $pdo->beginTransaction();
 
-    // Registrar un pago con monto 0 para marcar meses como exonerados
-    $stmt = $pdo->prepare(
-      "INSERT INTO pagos_residentes
-       (residente_id, fecha_recibo, fecha_pagada, meses_pagados, monto_base, mora, total, observaciones)
-       VALUES (?,?,?,?,?,?,?,?)"
-    );
-    $stmt->execute([
-      $id,
-      $fechaAhora,
-      $fechaHoy,
-      json_encode($pendientes, JSON_UNESCAPED_UNICODE),
-      0, 0, 0,
-      'Exoneración manual desde visor'
-    ]);
+    registrar_meses_exonerados_local($pdo, $id, $pendientes, 'Exoneración manual desde visor');
 
     // Limpiar montos y moras en la tabla principal y marcar exonerado
     $pdo->prepare(
@@ -54,18 +41,16 @@ if ($action === 'desexonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
   }
 
   try{
-    // Marcar exoneración removida y fijar fecha_pagada al último vencimiento anterior,
-    // para que el mes en curso se adeude nuevamente.
-    $fechaAnterior = (new DateTime('first day of this month'))->setDate(
-      (int)date('Y'),
-      (int)date('m'),
-      (int)DUE_DAY
-    )->modify('-1 month')->format('Y-m-d');
-
-    $stmt = $pdo->prepare("UPDATE residentes SET exonerado=0, exonerado_desde=NULL, fecha_pagada=? WHERE id=?");
-    $stmt->execute([$fechaAnterior, $id]);
+    $pdo->beginTransaction();
+    desexonerar_residente_local($pdo, $id);
+    $pdo->commit();
     header('Location:?action=edit&id='.$id.'&desexonerado=1'); exit;
   }catch(PDOException $ex){
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    $_SESSION['errors'] = ['No se pudo reactivar la facturación: '.$ex->getMessage()];
+    header('Location:?action=edit&id='.$id); exit;
+  }catch(Throwable $ex){
+    if ($pdo->inTransaction()) $pdo->rollBack();
     $_SESSION['errors'] = ['No se pudo reactivar la facturación: '.$ex->getMessage()];
     header('Location:?action=edit&id='.$id); exit;
   }

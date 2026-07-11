@@ -145,11 +145,101 @@ if (!defined('CUOTA_MONTO')) {
   define('CUOTA_MONTO', 1000.00);
 }
 
+function pago_delta_desde_row_local(array $row): int{
+  if (isset($row['tipo']) && $row['tipo'] === 'anulacion') {
+    return -1;
+  }
+  if (isset($row['total']) && (float)$row['total'] < 0) {
+    return -1;
+  }
+  return 1;
+}
+
+function extraer_meses_pagados_local($raw): array{
+  if ($raw === null || $raw === '') return [];
+  $arr = json_decode((string)$raw, true);
+  if (!is_array($arr)) return [];
+
+  $meses = [];
+  foreach($arr as $key => $value){
+    if (is_ymd($value)) {
+      $meses[] = $value;
+    } elseif (is_string($key) && is_ymd($key)) {
+      $meses[] = $key;
+    }
+  }
+  return array_values(array_unique($meses));
+}
+
+function conteo_meses_cubiertos_residente_local(PDO $pdo, int $residenteId): array{
+  $pagados = [];
+  $primeraCuotaHistorica = null;
+  $pagosConMeses = [];
+
+  try{
+    $st = $pdo->prepare("SELECT id, meses_pagados, total, tipo FROM pagos_residentes WHERE residente_id = ?");
+    $st->execute([$residenteId]);
+  }catch(Throwable $e){
+    $st = $pdo->prepare("SELECT id, meses_pagados, total FROM pagos_residentes WHERE residente_id = ?");
+    $st->execute([$residenteId]);
+  }
+
+  while($row = $st->fetch()){
+    $meses = extraer_meses_pagados_local($row['meses_pagados'] ?? null);
+    if (!$meses) continue;
+
+    $pagoId = isset($row['id']) ? (int)$row['id'] : 0;
+    if ($pagoId > 0) {
+      $pagosConMeses[$pagoId] = true;
+    }
+
+    $delta = pago_delta_desde_row_local($row);
+    foreach($meses as $d){
+      $k = align_due_day_local($d);
+      $pagados[$k] = ($pagados[$k] ?? 0) + $delta;
+      if ($primeraCuotaHistorica === null || strcmp($k, $primeraCuotaHistorica) < 0) {
+        $primeraCuotaHistorica = $k;
+      }
+    }
+  }
+
+  try{
+    $stLine = $pdo->prepare(
+      "SELECT l.pago_id, l.mes_vencimiento, p.total, p.tipo
+       FROM pagos_residentes_lineas l
+       INNER JOIN pagos_residentes p ON p.id = l.pago_id
+       WHERE p.residente_id = ?"
+    );
+    $stLine->execute([$residenteId]);
+    while($line = $stLine->fetch()){
+      $pagoId = isset($line['pago_id']) ? (int)$line['pago_id'] : 0;
+      if ($pagoId > 0 && isset($pagosConMeses[$pagoId])) {
+        continue;
+      }
+      $mes = $line['mes_vencimiento'] ?? null;
+      if (!is_ymd($mes)) continue;
+
+      $k = align_due_day_local($mes);
+      $pagados[$k] = ($pagados[$k] ?? 0) + pago_delta_desde_row_local($line);
+      if ($primeraCuotaHistorica === null || strcmp($k, $primeraCuotaHistorica) < 0) {
+        $primeraCuotaHistorica = $k;
+      }
+    }
+  }catch(Throwable $e){
+    // Instalaciones antiguas pueden no tener tabla de lineas.
+  }
+
+  return [
+    'pagados' => $pagados,
+    'primera' => $primeraCuotaHistorica,
+  ];
+}
+
 /**
- * Cuotas pendientes desde BASE_DUE hasta el último 25 ya vencido.
+ * Cuotas pendientes desde BASE_DUE hasta el último DUE_DAY ya vencido.
  * Copia ligera de la lógica principal para no duplicar includes.
  */
-function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $base): array{
+function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $base, bool $ignorarExonerado=false): array{
   try{
     $stBase = $pdo->prepare("SELECT fecha_x_pagar FROM residentes WHERE id = ? LIMIT 1");
     $stBase->execute([$residenteId]);
@@ -162,47 +252,24 @@ function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $b
     $baseCandidata = align_due_day_local((string)$fechaBaseRow);
   }
 
-  // Detener cálculo si está exonerado
-  try{
-    $chk = $pdo->prepare("SELECT exonerado FROM residentes WHERE id = ? LIMIT 1");
-    $chk->execute([$residenteId]);
-    $ex = $chk->fetchColumn();
-    if ($ex) {
-      return [];
+  // Detener cálculo visible si está exonerado.
+  if (!$ignorarExonerado) {
+    try{
+      $chk = $pdo->prepare("SELECT exonerado FROM residentes WHERE id = ? LIMIT 1");
+      $chk->execute([$residenteId]);
+      $ex = $chk->fetchColumn();
+      if ($ex) {
+        return [];
+      }
+    }catch(Throwable $e){
+      // fallback a cálculo normal
     }
-  }catch(Throwable $e){
-    // fallback a cálculo normal
   }
 
   // Compat: si tipo no existe, detectar anulación por total < 0
-  try{
-    $st = $pdo->prepare("SELECT meses_pagados, total, tipo FROM pagos_residentes WHERE residente_id = ?");
-    $st->execute([$residenteId]);
-  }catch(Throwable $e){
-    $st = $pdo->prepare("SELECT meses_pagados, total FROM pagos_residentes WHERE residente_id = ?");
-    $st->execute([$residenteId]);
-  }
-  $pagados = []; // ymd => int neto
-  $primeraCuotaHistorica = null;
-  while($row = $st->fetch()){
-    $arr = json_decode($row['meses_pagados'] ?? '[]', true);
-    if (!is_array($arr)) continue;
-    $delta = 1;
-    if (isset($row['tipo']) && $row['tipo'] === 'anulacion') {
-      $delta = -1;
-    } elseif (isset($row['total']) && (float)$row['total'] < 0) {
-      $delta = -1;
-    }
-    foreach($arr as $d){
-      if (is_ymd($d)) {
-        $k = align_due_day_local($d);
-        $pagados[$k] = ($pagados[$k] ?? 0) + $delta;
-        if ($primeraCuotaHistorica === null || strcmp($k, $primeraCuotaHistorica) < 0) {
-          $primeraCuotaHistorica = $k;
-        }
-      }
-    }
-  }
+  $historial = conteo_meses_cubiertos_residente_local($pdo, $residenteId);
+  $pagados = $historial['pagados'];
+  $primeraCuotaHistorica = $historial['primera'];
 
   if ($primeraCuotaHistorica !== null && strcmp($primeraCuotaHistorica, $baseCandidata) < 0) {
     $baseCandidata = $primeraCuotaHistorica;
@@ -235,4 +302,68 @@ function cuotas_pendientes_residente_local(PDO $pdo, int $residenteId, string $b
 function align_due_day_local(string $ymd): string{
   if (!preg_match('~^(\d{4})-(\d{2})-(\d{2})$~', $ymd, $m)) return $ymd;
   return $m[1].'-'.$m[2].'-'.DUE_DAY;
+}
+
+function registrar_meses_exonerados_local(PDO $pdo, int $residenteId, array $meses, string $observaciones): void{
+  $meses = array_values(array_unique(array_filter($meses, 'is_ymd')));
+  sort($meses);
+  if (!$meses) return;
+
+  $stmt = $pdo->prepare(
+    "INSERT INTO pagos_residentes
+     (residente_id, fecha_recibo, fecha_pagada, meses_pagados, monto_base, mora, total, observaciones)
+     VALUES (?,?,?,?,?,?,?,?)"
+  );
+  $stmt->execute([
+    $residenteId,
+    date('Y-m-d H:i:s'),
+    date('Y-m-d'),
+    json_encode($meses, JSON_UNESCAPED_UNICODE),
+    0,
+    0,
+    0,
+    $observaciones
+  ]);
+}
+
+function desexonerar_residente_local(PDO $pdo, int $residenteId): array{
+  $st = $pdo->prepare("SELECT exonerado, exonerado_desde FROM residentes WHERE id = ? LIMIT 1");
+  $st->execute([$residenteId]);
+  $residente = $st->fetch();
+  if (!$residente) {
+    throw new RuntimeException('Residente no encontrado.');
+  }
+
+  $mesesCubiertos = [];
+  if (!empty($residente['exonerado'])) {
+    $mesesCubiertos = cuotas_pendientes_residente_local($pdo, $residenteId, BASE_DUE, true);
+    registrar_meses_exonerados_local(
+      $pdo,
+      $residenteId,
+      $mesesCubiertos,
+      'Cierre de exoneracion: meses cubiertos mientras estuvo exonerado'
+    );
+  }
+
+  $fechaHoy = date('Y-m-d');
+  $ultimoCubierto = $mesesCubiertos ? end($mesesCubiertos) : null;
+  if ($ultimoCubierto) {
+    $stmt = $pdo->prepare(
+      "UPDATE residentes
+       SET exonerado=0, exonerado_desde=NULL, fecha_x_pagar=?, fecha_pagada=?,
+           mora=0, monto_a_pagar=0, monto_pagado=0, deuda_extra=0
+       WHERE id=?"
+    );
+    $stmt->execute([$ultimoCubierto, $fechaHoy, $residenteId]);
+  } else {
+    $stmt = $pdo->prepare(
+      "UPDATE residentes
+       SET exonerado=0, exonerado_desde=NULL, fecha_pagada=?,
+           mora=0, monto_a_pagar=0, monto_pagado=0, deuda_extra=0
+       WHERE id=?"
+    );
+    $stmt->execute([$fechaHoy, $residenteId]);
+  }
+
+  return $mesesCubiertos;
 }

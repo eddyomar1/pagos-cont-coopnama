@@ -7,10 +7,12 @@ $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['desexonerar_id'])) {
   $rid = (int)$_POST['desexonerar_id'];
   try{
-    $stmt = $pdo->prepare("UPDATE residentes SET exonerado=0, exonerado_desde=NULL WHERE id=?");
-    $stmt->execute([$rid]);
-    $msg = "Se quitó la exoneración del residente #{$rid}.";
+    $pdo->beginTransaction();
+    $mesesCubiertos = desexonerar_residente($pdo, $rid);
+    $pdo->commit();
+    $msg = "Se quitó la exoneración del residente #{$rid}. Meses cubiertos: ".count($mesesCubiertos).".";
   }catch(Throwable $e){
+    if ($pdo->inTransaction()) $pdo->rollBack();
     $msg = 'No se pudo quitar la exoneración: '.$e->getMessage();
     app_log($msg);
   }

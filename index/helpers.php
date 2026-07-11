@@ -180,14 +180,106 @@ function cuotas_en_mora(array $fechas, int $minMesesRetraso = 2, ?string $fechaC
   return $out;
 }
 
+function pago_delta_desde_row(array $row): int{
+  if (isset($row['tipo']) && $row['tipo'] === 'anulacion') {
+    return -1;
+  }
+  if (isset($row['total']) && (float)$row['total'] < 0) {
+    return -1;
+  }
+  return 1;
+}
+
+function extraer_meses_pagados($raw): array{
+  if ($raw === null || $raw === '') return [];
+  $arr = json_decode((string)$raw, true);
+  if (!is_array($arr)) return [];
+
+  $meses = [];
+  foreach($arr as $key => $value){
+    if (is_ymd($value)) {
+      $meses[] = $value;
+    } elseif (is_string($key) && is_ymd($key)) {
+      // Compatibilidad con JSON tipo {"2026-05-05": 1700.00}
+      $meses[] = $key;
+    }
+  }
+  return array_values(array_unique($meses));
+}
+
+function conteo_meses_cubiertos_residente(PDO $pdo, int $residenteId): array{
+  $pagados = [];
+  $primeraCuotaHistorica = null;
+  $pagosConMeses = [];
+
+  try{
+    $st = $pdo->prepare("SELECT id, meses_pagados, total, tipo FROM pagos_residentes WHERE residente_id = ?");
+    $st->execute([$residenteId]);
+  }catch(Throwable $e){
+    $st = $pdo->prepare("SELECT id, meses_pagados, total FROM pagos_residentes WHERE residente_id = ?");
+    $st->execute([$residenteId]);
+  }
+
+  while($row = $st->fetch()){
+    $meses = extraer_meses_pagados($row['meses_pagados'] ?? null);
+    if (!$meses) continue;
+
+    $pagoId = isset($row['id']) ? (int)$row['id'] : 0;
+    if ($pagoId > 0) {
+      $pagosConMeses[$pagoId] = true;
+    }
+
+    $delta = pago_delta_desde_row($row);
+    foreach($meses as $d){
+      $norm = align_due_day($d);
+      $pagados[$norm] = ($pagados[$norm] ?? 0) + $delta;
+      if ($primeraCuotaHistorica === null || strcmp($norm, $primeraCuotaHistorica) < 0) {
+        $primeraCuotaHistorica = $norm;
+      }
+    }
+  }
+
+  // Respaldo para pagos nuevos/antiguos que tengan lineas pero meses_pagados vacio o dañado.
+  try{
+    $stLine = $pdo->prepare(
+      "SELECT l.pago_id, l.mes_vencimiento, p.total, p.tipo
+       FROM pagos_residentes_lineas l
+       INNER JOIN pagos_residentes p ON p.id = l.pago_id
+       WHERE p.residente_id = ?"
+    );
+    $stLine->execute([$residenteId]);
+    while($line = $stLine->fetch()){
+      $pagoId = isset($line['pago_id']) ? (int)$line['pago_id'] : 0;
+      if ($pagoId > 0 && isset($pagosConMeses[$pagoId])) {
+        continue;
+      }
+      $mes = $line['mes_vencimiento'] ?? null;
+      if (!is_ymd($mes)) continue;
+
+      $norm = align_due_day($mes);
+      $pagados[$norm] = ($pagados[$norm] ?? 0) + pago_delta_desde_row($line);
+      if ($primeraCuotaHistorica === null || strcmp($norm, $primeraCuotaHistorica) < 0) {
+        $primeraCuotaHistorica = $norm;
+      }
+    }
+  }catch(Throwable $e){
+    // La tabla de lineas puede no existir en instalaciones antiguas.
+  }
+
+  return [
+    'pagados' => $pagados,
+    'primera' => $primeraCuotaHistorica,
+  ];
+}
+
 
 /**
- * Devuelve un array de YYYY-MM-DD (día 25) con las cuotas pendientes
+ * Devuelve un array de YYYY-MM-DD (día DUE_DAY) con las cuotas pendientes
  * para un residente, desde BASE_DUE hasta el último vencimiento <= hoy,
  * teniendo en cuenta todos los meses YA PAGADOS en pagos_residentes
  * (incluyendo pagos adelantados).
  */
-function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=null){
+function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=null, bool $ignorarExonerado=false){
   // Fecha base: usamos la fecha_x_pagar del residente, pero si en el historial
   // existen cuotas más antiguas (pagadas o anuladas), arrancamos desde la más antigua.
   try{
@@ -206,52 +298,27 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
     $baseCandidata = align_due_day(BASE_DUE);
   }
 
-  // Si está exonerado, no generar pendientes hasta que se reactive
-  try{
-    $chk = $pdo->prepare("SELECT exonerado FROM residentes WHERE id = ? LIMIT 1");
-    $chk->execute([$residenteId]);
-    $ex = $chk->fetchColumn();
-    if ($ex) {
-      return [];
+  // Si está exonerado, no generar pendientes visibles hasta que se reactive.
+  if (!$ignorarExonerado) {
+    try{
+      $chk = $pdo->prepare("SELECT exonerado FROM residentes WHERE id = ? LIMIT 1");
+      $chk->execute([$residenteId]);
+      $ex = $chk->fetchColumn();
+      if ($ex) {
+        return [];
+      }
+    }catch(Throwable $e){
+      // Si falla, continuamos con la lógica normal para no bloquear el flujo.
     }
-  }catch(Throwable $e){
-    // Si falla, continuamos con la lógica normal para no bloquear el flujo.
   }
 
   // 1) Construir conteo neto de meses pagados (YYYY-MM-DUE_DAY)
   //    - Un pago suma +1
   //    - Una anulación resta -1
   //    Compat: si la columna tipo no existe aún, caemos a detectar por total < 0.
-  try{
-    $st = $pdo->prepare("SELECT meses_pagados, total, tipo FROM pagos_residentes WHERE residente_id = ?");
-    $st->execute([$residenteId]);
-  }catch(Throwable $e){
-    $st = $pdo->prepare("SELECT meses_pagados, total FROM pagos_residentes WHERE residente_id = ?");
-    $st->execute([$residenteId]);
-  }
-
-  $pagados = []; // ymd => int (conteo neto)
-  $primeraCuotaHistorica = null;
-  while($row = $st->fetch()){
-    if (empty($row['meses_pagados'])) continue;
-    $arr = json_decode($row['meses_pagados'], true);
-    if (!is_array($arr)) continue;
-    $delta = 1;
-    if (isset($row['tipo']) && $row['tipo'] === 'anulacion') {
-      $delta = -1;
-    } elseif (isset($row['total']) && (float)$row['total'] < 0) {
-      $delta = -1;
-    }
-    foreach($arr as $d){
-      if (is_ymd($d)) {
-        $norm = align_due_day($d);
-        $pagados[$norm] = ($pagados[$norm] ?? 0) + $delta;
-        if ($primeraCuotaHistorica === null || strcmp($norm, $primeraCuotaHistorica) < 0) {
-          $primeraCuotaHistorica = $norm;
-        }
-      }
-    }
-  }
+  $historial = conteo_meses_cubiertos_residente($pdo, $residenteId);
+  $pagados = $historial['pagados'];
+  $primeraCuotaHistorica = $historial['primera'];
 
   if ($primeraCuotaHistorica !== null && strcmp($primeraCuotaHistorica, $baseCandidata) < 0) {
     $baseCandidata = $primeraCuotaHistorica;
@@ -452,67 +519,190 @@ function insertar_pago_con_lineas(
   $selected_dues = array_values(array_filter($selected_dues, 'is_ymd'));
   sort($selected_dues);
 
-  $meses_pagados_json = json_encode($selected_dues, JSON_UNESCAPED_UNICODE);
-  $detalle_cuotas_json = json_encode($selected_due_amounts, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
-  $cantidad_meses = count($selected_dues);
+  $pagos = [];
+  $totalCuotas = cuotas_total_por_fechas($selected_dues, $selected_due_amounts);
+  $extra = max(0.0, $monto_base - $totalCuotas);
 
-  if (defined('HAS_PAGOS_DETALLE_CUOTAS') && HAS_PAGOS_DETALLE_CUOTAS) {
-    $stmt = $pdo->prepare(
-      "INSERT INTO pagos_residentes
-       (residente_id, fecha_recibo, fecha_pagada, cantidad_meses,
-        meses_pagados, detalle_cuotas, monto_base, mora, total, observaciones)
-       VALUES (?,?,?,?,?,?,?,?,?,?)"
-    );
-    $stmt->execute([
-      $residenteId,
-      date('Y-m-d H:i:s'),
-      $fecha_pagada,
-      $cantidad_meses,
-      $meses_pagados_json,
-      $detalle_cuotas_json,
-      $monto_base,
-      $mora,
-      $monto_base + $mora,
-      $observaciones
-    ]);
-  } else {
-    $stmt = $pdo->prepare(
-      "INSERT INTO pagos_residentes
-       (residente_id, fecha_recibo, fecha_pagada, cantidad_meses,
-        meses_pagados, monto_base, mora, total, observaciones)
-       VALUES (?,?,?,?,?,?,?,?,?)"
-    );
-    $stmt->execute([
-      $residenteId,
-      date('Y-m-d H:i:s'),
-      $fecha_pagada,
-      $cantidad_meses,
-      $meses_pagados_json,
-      $monto_base,
-      $mora,
-      $monto_base + $mora,
-      $observaciones
-    ]);
+  foreach ($selected_dues as $mes) {
+    $montoMes = isset($selected_due_amounts[$mes]) && is_numeric($selected_due_amounts[$mes])
+      ? max(0.0, (float)$selected_due_amounts[$mes])
+      : cuota_monto_por_fecha($mes);
+    $pagos[] = [
+      'meses' => [$mes],
+      'detalle' => [$mes => $montoMes],
+      'monto_base' => $montoMes,
+      'mora_base' => $montoMes,
+      'observaciones' => null,
+    ];
   }
 
-  $pagoId = (int)$pdo->lastInsertId();
+  if (!$pagos) {
+    $pagos[] = [
+      'meses' => [],
+      'detalle' => [],
+      'monto_base' => max(0.0, $monto_base),
+      'mora_base' => max(0.0, $monto_base),
+      'observaciones' => $observaciones,
+    ];
+    $extra = 0.0;
+  }
 
-  if ($cantidad_meses > 0) {
-    $stmtLine = $pdo->prepare(
-      "INSERT INTO pagos_residentes_lineas
-       (pago_id, mes_vencimiento, monto, mora_linea)
-       VALUES (?,?,?,?)"
-    );
-    foreach ($selected_dues as $index => $mes) {
-      $monto_linea = isset($selected_due_amounts[$mes]) && is_numeric($selected_due_amounts[$mes])
-        ? (float)$selected_due_amounts[$mes]
-        : cuota_monto_por_fecha($mes);
-      $mora_linea = ($index === 0) ? $mora : 0.0;
-      $stmtLine->execute([$pagoId, $mes, $monto_linea, $mora_linea]);
+  if ($extra > 0) {
+    $pagos[0]['monto_base'] += $extra;
+    $pagos[0]['observaciones'] = $observaciones;
+  } elseif ($observaciones !== null && count($pagos) === 1) {
+    $pagos[0]['observaciones'] = $observaciones;
+  }
+
+  $fecha_recibo = date('Y-m-d H:i:s');
+  $primerPagoId = 0;
+  $moraTotal = round((float)$mora, 2);
+  $moraRestante = $moraTotal;
+  $moraBaseTotal = max(0.01, array_sum(array_column($pagos, 'mora_base')));
+  $ultimoIdx = count($pagos) - 1;
+
+  $stmtLine = $pdo->prepare(
+    "INSERT INTO pagos_residentes_lineas
+     (pago_id, mes_vencimiento, monto, mora_linea)
+     VALUES (?,?,?,?)"
+  );
+
+  foreach ($pagos as $idx => $pago) {
+    $moraMes = 0.0;
+    if ($moraRestante > 0) {
+      if ($idx === $ultimoIdx) {
+        $moraMes = $moraRestante;
+      } else {
+        $moraMes = round(((float)$pago['mora_base'] / $moraBaseTotal) * $moraTotal, 2);
+        if ($moraMes > $moraRestante) $moraMes = $moraRestante;
+      }
+      $moraRestante = round($moraRestante - $moraMes, 2);
+    }
+
+    $cantidad_meses = count($pago['meses']);
+    $meses_pagados_json = json_encode($pago['meses'], JSON_UNESCAPED_UNICODE);
+    $detalle_cuotas_json = json_encode($pago['detalle'], JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+    $monto_base_mes = round((float)$pago['monto_base'], 2);
+    $total_mes = $monto_base_mes + $moraMes;
+
+    if (defined('HAS_PAGOS_DETALLE_CUOTAS') && HAS_PAGOS_DETALLE_CUOTAS) {
+      $stmt = $pdo->prepare(
+        "INSERT INTO pagos_residentes
+         (residente_id, fecha_recibo, fecha_pagada, cantidad_meses,
+          meses_pagados, detalle_cuotas, monto_base, mora, total, observaciones)
+         VALUES (?,?,?,?,?,?,?,?,?,?)"
+      );
+      $stmt->execute([
+        $residenteId,
+        $fecha_recibo,
+        $fecha_pagada,
+        $cantidad_meses,
+        $meses_pagados_json,
+        $detalle_cuotas_json,
+        $monto_base_mes,
+        $moraMes,
+        $total_mes,
+        $pago['observaciones']
+      ]);
+    } else {
+      $stmt = $pdo->prepare(
+        "INSERT INTO pagos_residentes
+         (residente_id, fecha_recibo, fecha_pagada, cantidad_meses,
+          meses_pagados, monto_base, mora, total, observaciones)
+         VALUES (?,?,?,?,?,?,?,?,?)"
+      );
+      $stmt->execute([
+        $residenteId,
+        $fecha_recibo,
+        $fecha_pagada,
+        $cantidad_meses,
+        $meses_pagados_json,
+        $monto_base_mes,
+        $moraMes,
+        $total_mes,
+        $pago['observaciones']
+      ]);
+    }
+
+    $pagoId = (int)$pdo->lastInsertId();
+    if ($primerPagoId === 0) {
+      $primerPagoId = $pagoId;
+    }
+
+    foreach ($pago['meses'] as $mes) {
+      $montoLinea = isset($pago['detalle'][$mes]) ? (float)$pago['detalle'][$mes] : 0.0;
+      $stmtLine->execute([$pagoId, $mes, $montoLinea, $moraMes]);
     }
   }
 
-  return $pagoId;
+  return $primerPagoId;
+}
+
+function registrar_meses_exonerados(PDO $pdo, int $residenteId, array $meses, string $observaciones): ?int{
+  $meses = array_values(array_unique(array_filter($meses, 'is_ymd')));
+  sort($meses);
+  if (!$meses) {
+    return null;
+  }
+
+  $montosCero = [];
+  foreach($meses as $mes){
+    $montosCero[$mes] = 0.0;
+  }
+
+  return insertar_pago_con_lineas(
+    $pdo,
+    $residenteId,
+    $meses,
+    $montosCero,
+    0.0,
+    0.0,
+    date('Y-m-d'),
+    $observaciones
+  );
+}
+
+function desexonerar_residente(PDO $pdo, int $residenteId): array{
+  $st = $pdo->prepare("SELECT exonerado, exonerado_desde FROM residentes WHERE id = ? LIMIT 1");
+  $st->execute([$residenteId]);
+  $residente = $st->fetch();
+  if (!$residente) {
+    throw new RuntimeException('Residente no encontrado.');
+  }
+
+  $mesesCubiertos = [];
+  if (!empty($residente['exonerado'])) {
+    // Ignorar la bandera activa solo para cerrar el periodo exonerado con historial real.
+    $mesesCubiertos = cuotas_pendientes_residente($pdo, $residenteId, BASE_DUE, true);
+    registrar_meses_exonerados(
+      $pdo,
+      $residenteId,
+      $mesesCubiertos,
+      'Cierre de exoneracion: meses cubiertos mientras estuvo exonerado'
+    );
+  }
+
+  $fechaHoy = date('Y-m-d');
+  $ultimoCubierto = $mesesCubiertos ? end($mesesCubiertos) : null;
+  if ($ultimoCubierto) {
+    $stmt = $pdo->prepare(
+      "UPDATE residentes
+       SET exonerado=0, exonerado_desde=NULL, fecha_x_pagar=?, fecha_pagada=?,
+           mora=0, monto_a_pagar=0, monto_pagado=0, deuda_extra=0
+       WHERE id=?"
+    );
+    $stmt->execute([$ultimoCubierto, $fechaHoy, $residenteId]);
+  } else {
+    $stmt = $pdo->prepare(
+      "UPDATE residentes
+       SET exonerado=0, exonerado_desde=NULL, fecha_pagada=?,
+           mora=0, monto_a_pagar=0, monto_pagado=0, deuda_extra=0
+       WHERE id=?"
+    );
+    $stmt->execute([$fechaHoy, $residenteId]);
+  }
+
+  return $mesesCubiertos;
 }
 
 function ensure_pagos_detalle_cuotas_column(PDO $pdo): bool{
