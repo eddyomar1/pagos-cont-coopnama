@@ -47,14 +47,19 @@ if ($editing && !empty($data['id'])) {
 }
 $exonerado = $editing && !empty($data['exonerado']);
 $exoneradoDesde = $exonerado && !empty($data['exonerado_desde']) ? $data['exonerado_desde'] : null;
+$inicioPagoMes = !empty($data['inicio_pago_mes']) && preg_match('~^\d{4}-\d{2}$~', (string)$data['inicio_pago_mes'])
+  ? (string)$data['inicio_pago_mes']
+  : '';
 $inicioPagoFecha = !empty($data['fecha_x_pagar']) && is_ymd($data['fecha_x_pagar'])
   ? $data['fecha_x_pagar']
-  : date('Y-m-'.DUE_DAY);
-$inicioPagoMes = substr($inicioPagoFecha, 0, 7);
+  : '';
+if ($inicioPagoMes === '' && $inicioPagoFecha !== '') {
+  $inicioPagoMes = substr($inicioPagoFecha, 0, 7);
+}
 $cuotaMensualCustom = isset($data['cuota_mensual']) && is_numeric($data['cuota_mensual']) && (float)$data['cuota_mensual'] > 0
   ? (float)$data['cuota_mensual']
   : null;
-$cuotaMensualSugerida = cuota_monto_por_fecha_local($inicioPagoFecha);
+$cuotaMensualSugerida = cuota_monto_por_fecha_local($inicioPagoFecha !== '' ? $inicioPagoFecha : date('Y-m-'.DUE_DAY));
 
 header_html($editing?'Editar residente':'Agregar residente');
 ?>
@@ -114,26 +119,28 @@ header_html($editing?'Editar residente':'Agregar residente');
       <hr class="my-4 border-2 border-primary opacity-75">
       <div class="row g-3 mt-2 align-items-start">
         <div class="col-md-3">
-          <label class="form-label">Mes/Año inicio de pago</label>
+          <label class="form-label">Mes/Año inicio de pago *</label>
           <input
             type="month"
             name="inicio_pago_mes"
             class="form-control"
             value="<?= e($inicioPagoMes) ?>"
+            required
           >
           <input type="hidden" name="fecha_x_pagar" value="<?= e($inicioPagoFecha) ?>">
-          <div class="form-text">Desde este mes se empezarán a generar las cuotas.</div>
+          <div class="form-text">Obligatorio. Desde este mes se empezarán a generar las cuotas.</div>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Monto mensual</label>
+          <label class="form-label">Monto mensual *</label>
           <input
             type="text"
             name="cuota_mensual"
             class="form-control"
             placeholder="<?= e(number_format($cuotaMensualSugerida,2,'.','')) ?>"
             value="<?= e($cuotaMensualCustom !== null ? number_format($cuotaMensualCustom,2,'.','') : '') ?>"
+            required
           >
-          <div class="form-text">Déjalo vacío para usar el monto global según la fecha.</div>
+          <div class="form-text">Obligatorio. Monto que pagará este residente por mes.</div>
         </div>
         <div class="col-md-3 ms-md-auto text-md-end">
           <label class="form-label">Deuda inicial</label>

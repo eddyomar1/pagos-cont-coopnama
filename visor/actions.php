@@ -68,7 +68,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $inicio_pago_mes   = body('inicio_pago_mes');
   $fecha_x_pagar     = preg_match('~^\d{4}-\d{2}$~', $inicio_pago_mes)
     ? $inicio_pago_mes.'-'.DUE_DAY
-    : (toDateOrNull(body('fecha_x_pagar')) ?: date('Y-m-'.DUE_DAY));
+    : null;
   $fecha_pagada      = toDateOrNull(body('fecha_pagada'));
   $mora              = toDecimal(body('mora')) ?? 0;
   $monto_a_pagar     = toDecimal(body('monto_a_pagar')) ?? 0;
@@ -79,6 +79,10 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $errors=[];
   if(!required($edif_apto))         $errors[]="Edif/Apto es obligatorio.";
   if(!required($nombres_apellidos)) $errors[]="Nombres y Apellidos es obligatorio.";
+  if(!$fecha_x_pagar)               $errors[]="Mes/Año inicio de pago es obligatorio.";
+  if($cuota_mensual === null || (float)$cuota_mensual <= 0) {
+    $errors[] = "Monto mensual es obligatorio.";
+  }
 
   // Cédula opcional
   $cedula_digits = digits_only($cedula_in);
@@ -150,6 +154,10 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   if($id<=0)                         $errors[]="ID inválido.";
   if(!required($edif_apto))          $errors[]="Edif/Apto es obligatorio.";
   if(!required($nombres_apellidos))  $errors[]="Nombres y Apellidos es obligatorio.";
+  if(!$fecha_x_pagar)                $errors[]="Mes/Año inicio de pago es obligatorio.";
+  if($cuota_mensual === null || (float)$cuota_mensual <= 0) {
+    $errors[] = "Monto mensual es obligatorio.";
+  }
 
   // Cédula opcional
   $cedula_digits = digits_only($cedula_in);
