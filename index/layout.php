@@ -80,6 +80,8 @@ function render_header(string $title='Residentes', string $active='residentes'){
  .actions-col{width:140px}
  body.sidebar-collapsed .sidebar{transform:translateX(-100%);}
  body.sidebar-collapsed .content{margin-left:0;}
+ .due-item.due-locked{opacity:.65;}
+ .due-item.due-locked .form-check-input{cursor:not-allowed;}
  @media (max-width: 992px){
    .sidebar{transform:translateX(-100%);}
    body.sidebar-open .sidebar{transform:translateX(0);}
@@ -286,7 +288,60 @@ $(function(){
     }
   }
 
-  $(document).on('change', '.due-option', recalcDueSelection);
+  // Las cuotas deben pagarse en orden: si se marca un mes, se marcan también
+  // los meses pendientes anteriores; si se desmarca un mes, se desmarcan (o
+  // se quitan, si son adelantos) los meses posteriores que quedarían pagados
+  // sin haber cubierto uno anterior.
+  function isFutureDueBox(box){
+    return $(box).closest('.future-due').length > 0;
+  }
+
+  function cascadeCheckEarlierDues(changedBox){
+    var changedDate = changedBox.value;
+    $('.due-option').each(function(){
+      if (this === changedBox) return;
+      if (this.value < changedDate && !this.checked) {
+        this.checked = true;
+      }
+    });
+  }
+
+  function cascadeUncheckLaterDues(changedBox){
+    var changedDate = changedBox.value;
+    while (futureDueStack.length && futureDueStack[futureDueStack.length - 1].date > changedDate) {
+      removeSingleFutureDue();
+    }
+    $('.due-option').each(function(){
+      if (this === changedBox) return;
+      if (this.value > changedDate && this.checked && !isFutureDueBox(this)) {
+        this.checked = false;
+      }
+    });
+  }
+
+  function updateDueLockState(){
+    $('.due-item').toggleClass('due-locked', advancesAdded > 0);
+  }
+
+  $(document).on('change', '.due-option', function(){
+    if (this.checked) {
+      cascadeCheckEarlierDues(this);
+    } else {
+      cascadeUncheckLaterDues(this);
+    }
+    updateDueLockState();
+    recalcDueSelection();
+  });
+
+  // Mientras haya meses adelantados, los meses anteriores quedan bloqueados:
+  // solo se pueden liberar usando los botones de adelanto (-), para no dejar
+  // huecos de meses sin pagar en medio de la selección.
+  $(document).on('click', '.due-option', function(ev){
+    if ($(this).closest('.due-item').hasClass('due-locked')) {
+      ev.preventDefault();
+    }
+  });
+
   $(document).on('input', '#abono_deuda_extra', recalcDueSelection);
   $(document).on('input', 'input[name="mora"]', recalcDueSelection);
   $(document).on('dblclick', '.due-amount-display[data-editable-amount]', function(){
@@ -594,6 +649,7 @@ $(function(){
       $nextFutureDue.val(addOneMonth(nextDue));
       toggleNoDueMessage();
       updateAdvanceControlsState();
+      updateDueLockState();
       recalcDueSelection();
       return true;
     }
@@ -614,6 +670,7 @@ $(function(){
     $nextFutureDue.val(last.date);
     toggleNoDueMessage();
     updateAdvanceControlsState();
+    updateDueLockState();
     recalcDueSelection();
 
     if (advancesAdded === 0 && $dueList.children().length === 0 && $noDueMessage.length){
