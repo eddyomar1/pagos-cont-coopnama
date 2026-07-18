@@ -11,6 +11,7 @@ $data=[
   'telefono'=>'',
   'deuda_inicial'=>'0.00',
   'deuda_extra'=>'0.00',
+  'multa'=>'0.00',
   'cuota_mensual'=>'',
   'fecha_x_pagar'=>'',
   'fecha_pagada'=>'',
@@ -155,6 +156,13 @@ header_html($editing?'Editar residente':'Agregar residente');
                  placeholder="0.00"
                  value="<?= e(number_format((float)$data['deuda_extra'],2,'.','')) ?>">
           <div class="form-text">Úsalo para ajustar el balance pendiente.</div>
+        </div>
+        <div class="col-md-3 text-md-end">
+          <label class="form-label">Multa</label>
+          <input type="text" name="multa" class="form-control"
+                 placeholder="0.00"
+                 value="<?= e(number_format((float)$data['multa'],2,'.','')) ?>">
+          <div class="form-text">Monto de multa pendiente. Aparecerá para pagarse junto a las cuotas.</div>
         </div>
       </div>
     <?php endif; ?>

@@ -65,6 +65,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   $telefono          = body('telefono');
   $deuda_inicial     = toDecimal(body('deuda_inicial')) ?? 0;
   $deuda_extra       = toDecimal(body('deuda_extra')) ?? $deuda_inicial;
+  $multa             = toDecimal(body('multa')) ?? 0;
   $inicio_pago_mes   = body('inicio_pago_mes');
   $fecha_x_pagar     = preg_match('~^\d{4}-\d{2}$~', $inicio_pago_mes)
     ? $inicio_pago_mes.'-'.DUE_DAY
@@ -101,23 +102,23 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
     if (defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL) {
       $stmt=$pdo->prepare(
         "INSERT INTO residentes
-         (edif_apto,nombres_apellidos,cedula,codigo,telefono,deuda_inicial,deuda_extra,cuota_mensual,fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,no_recurrente)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+         (edif_apto,nombres_apellidos,cedula,codigo,telefono,deuda_inicial,deuda_extra,multa,cuota_mensual,fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,no_recurrente)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
       );
       $stmt->execute([
         $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
-        $deuda_inicial,$deuda_extra,$cuota_mensual,
+        $deuda_inicial,$deuda_extra,$multa,$cuota_mensual,
         $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente
       ]);
     } else {
       $stmt=$pdo->prepare(
         "INSERT INTO residentes
-         (edif_apto,nombres_apellidos,cedula,codigo,telefono,cuota_mensual,fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,no_recurrente)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+         (edif_apto,nombres_apellidos,cedula,codigo,telefono,multa,cuota_mensual,fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,no_recurrente)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
       );
       $stmt->execute([
         $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
-        $cuota_mensual,
+        $multa,$cuota_mensual,
         $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente
       ]);
     }
@@ -139,6 +140,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $telefono          = body('telefono');
   $deuda_inicial     = toDecimal(body('deuda_inicial')) ?? 0;
   $deuda_extra       = toDecimal(body('deuda_extra')) ?? $deuda_inicial;
+  $multa             = toDecimal(body('multa')) ?? 0;
   $inicio_pago_mes   = body('inicio_pago_mes');
   $fecha_x_pagar     = preg_match('~^\d{4}-\d{2}$~', $inicio_pago_mes)
     ? $inicio_pago_mes.'-'.DUE_DAY
@@ -183,25 +185,25 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
       $stmt=$pdo->prepare(
         "UPDATE residentes SET
           edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
-          deuda_inicial=?, deuda_extra=?, cuota_mensual=?,
+          deuda_inicial=?, deuda_extra=?, multa=?, cuota_mensual=?,
           fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
          WHERE id=?"
       );
       $stmt->execute([
         $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
-        $deuda_inicial,$deuda_extra,$cuota_mensual,
+        $deuda_inicial,$deuda_extra,$multa,$cuota_mensual,
         $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente,$id
       ]);
     } else {
       $stmt=$pdo->prepare(
         "UPDATE residentes SET
           edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
-          cuota_mensual=?, fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
+          multa=?, cuota_mensual=?, fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
          WHERE id=?"
       );
       $stmt->execute([
         $edif_apto,$nombres_apellidos,$cedula_db,$codigo ?: null,$telefono ?: null,
-        $cuota_mensual,
+        $multa,$cuota_mensual,
         $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente,$id
       ]);
     }

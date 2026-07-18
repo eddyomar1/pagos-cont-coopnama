@@ -127,6 +127,31 @@ function ensure_residente_cuota_mensual_column(PDO $pdo): bool{
 }
 
 /**
+ * Asegura la columna multa (multa/multa pendiente) en residentes.
+ */
+function ensure_residente_multa_column(PDO $pdo): bool{
+  static $checked = false;
+  static $ok      = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'multa'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN multa DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER deuda_extra");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+  }
+
+  if (!defined('HAS_MULTA')) {
+    define('HAS_MULTA', $ok);
+  }
+  return $ok;
+}
+
+/**
  * Asegura columnas para anulación de pagos (tipo/anulado_de) en pagos_residentes.
  */
 function ensure_pagos_anulacion_columns_local(PDO $pdo): bool{
@@ -155,6 +180,7 @@ $action = $_GET['action'] ?? 'full';
 ensure_deuda_inicial_column($pdo);
 ensure_exonerado_columns($pdo);
 ensure_residente_cuota_mensual_column($pdo);
+ensure_residente_multa_column($pdo);
 ensure_pagos_anulacion_columns_local($pdo);
 
 // Config de cuotas (coincide con la app principal)

@@ -467,6 +467,32 @@ function ensure_residente_cuota_mensual_column(PDO $pdo): bool{
 }
 
 /**
+ * Asegura la columna multa (multa pendiente) en residentes.
+ */
+function ensure_residente_multa_column(PDO $pdo): bool{
+  static $checked = false;
+  static $ok      = false;
+  if ($checked) return $ok;
+
+  $checked = true;
+  $ok = true;
+  try{
+    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'multa'");
+    if (!$st || !$st->fetch()) {
+      $pdo->exec("ALTER TABLE residentes ADD COLUMN multa DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER deuda_extra");
+    }
+  }catch(Throwable $e){
+    $ok = false;
+    app_log('No se pudo asegurar columna residentes.multa: '.$e->getMessage());
+  }
+
+  if (!defined('HAS_MULTA')) {
+    define('HAS_MULTA', $ok);
+  }
+  return $ok;
+}
+
+/**
  * Asegura columnas para anulación de pagos (tipo/anulado_de) en pagos_residentes.
  * Esto permite crear un registro inverso y mantener historial sin borrar.
  */

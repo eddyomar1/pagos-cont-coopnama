@@ -237,6 +237,11 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
 
   $abono_deuda_extra  = toDecimal(body('abono_deuda_extra')) ?? 0;
 
+  // Multa pendiente: se paga completa si la casilla viene marcada.
+  $multa_actual = isset($residente['multa']) ? (float)$residente['multa'] : 0.0;
+  $pagar_multa  = $multa_actual > 0 && isset($_POST['pagar_multa']);
+  $monto_multa_pagada = $pagar_multa ? $multa_actual : 0.0;
+
   // Cuotas seleccionadas (checkboxes)
   $selected_dues = isset($_POST['selected_dues']) && is_array($_POST['selected_dues'])
     ? $_POST['selected_dues'] : [];
@@ -287,9 +292,9 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     $fecha_x_pagar = toDateOrNull(body('fecha_x_pagar')) ?: null;
   }
 
-  // Monto base = suma de cuotas seleccionadas + abono deuda extra
+  // Monto base = suma de cuotas seleccionadas + abono deuda extra + multa pagada
   $monto_base_cuotas = cuotas_total_residente_por_fechas($pdo, $id, $selected_dues, $selected_due_amounts);
-  $monto_base        = $monto_base_cuotas + $abono_deuda_extra;
+  $monto_base        = $monto_base_cuotas + $abono_deuda_extra + $monto_multa_pagada;
 
   $pendientes_totales = cuotas_pendientes_residente($pdo, $id, BASE_DUE);
   $cuotas_en_mora_totales = cuotas_en_mora($pendientes_totales, 2);
@@ -310,6 +315,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   $monto_pagado  = $monto_base + $mora_raw;
 
   $nueva_deuda_extra = max(0, $deuda_extra_actual - $abono_deuda_extra);
+  $nueva_multa       = $pagar_multa ? 0.0 : $multa_actual;
 
   $errors=[];
   if(!required($edif_apto))         $errors[]="Edif/Apto es obligatorio.";
@@ -330,18 +336,23 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     $stmt=$pdo->prepare(
       "UPDATE residentes SET
         edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
-        fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, deuda_extra=?, no_recurrente=?
+        fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, deuda_extra=?, multa=?, no_recurrente=?
        WHERE id=?"
     );
     $stmt->execute([
       $edif_apto,$nombres_apellidos,$cedula_digits,$codigo ?: null,$telefono ?: null,
-      $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$nueva_deuda_extra,$no_recurrente,$id
+      $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$nueva_deuda_extra,$nueva_multa,$no_recurrente,$id
     ]);
 
     // Registrar pago detallado
-    $observaciones = $abono_deuda_extra > 0
-      ? 'Incluye abono a deuda extra de RD$ '.number_format($abono_deuda_extra,2,'.','')
-      : null;
+    $observacionesPartes = [];
+    if ($abono_deuda_extra > 0) {
+      $observacionesPartes[] = 'Incluye abono a deuda extra de RD$ '.number_format($abono_deuda_extra,2,'.','');
+    }
+    if ($monto_multa_pagada > 0) {
+      $observacionesPartes[] = 'Incluye multa pagada de RD$ '.number_format($monto_multa_pagada,2,'.','');
+    }
+    $observaciones = $observacionesPartes ? implode('. ', $observacionesPartes) : null;
 
     insertar_pago_con_lineas(
       $pdo,
@@ -693,6 +704,10 @@ if ($action==='new' || $action==='pagar') {
   $deuda_extra_db   = isset($data['deuda_extra']) ? (float)$data['deuda_extra'] : 0.0;
   $deuda_extra_fmt  = number_format($deuda_extra_db,2,'.','');
   $mostrar_card_deuda = $deuda_extra_db > 0;
+
+  // Multa pendiente (desde BD)
+  $multa_db  = isset($data['multa']) ? (float)$data['multa'] : 0.0;
+  $mostrar_multa = $editing && $multa_db > 0.0001;
 	  ?>
 	  <div class="row justify-content-center"><div class="col-lg-10">
       <style>
@@ -868,6 +883,19 @@ if ($action==='new' || $action==='pagar') {
             </div>
           <?php endif; ?>
         </div>
+
+        <?php if ($mostrar_multa): ?>
+          <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3" id="multaBox">
+            <div class="form-check m-0">
+              <input class="form-check-input" type="checkbox" name="pagar_multa" id="pagarMulta" value="1" checked>
+              <label class="form-check-label" for="pagarMulta">
+                Multa pendiente: <strong>RD$ <?= number_format($multa_db,2,'.',',') ?></strong>
+              </label>
+            </div>
+            <span class="text-muted small">Se incluirá en el total a pagar de este recibo.</span>
+          </div>
+          <input type="hidden" id="multaMonto" value="<?= number_format($multa_db,2,'.','') ?>">
+        <?php endif; ?>
 
         <?php
           $proximo = proximo_vencimiento($data['fecha_x_pagar'] ?? null);

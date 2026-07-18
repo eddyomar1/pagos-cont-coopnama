@@ -260,7 +260,16 @@ $(function(){
     var abono = parseFloat(abonoStr);
     if (isNaN(abono)) abono = 0;
 
-    var totalBase = totalCuotas + abono;
+    var multaMonto = 0;
+    if ($('#pagarMulta').is(':checked')) {
+      var multaStr = ($('#multaMonto').val() || '0').replace(',', '.');
+      var multaParsed = parseFloat(multaStr);
+      if (!isNaN(multaParsed) && multaParsed > 0) {
+        multaMonto = multaParsed;
+      }
+    }
+
+    var totalBase = totalCuotas + abono + multaMonto;
     var moraValue = 0;
     if ($moraInput.length) {
       var moraStr = ($moraInput.val() || '0').replace(',', '.');
@@ -320,7 +329,16 @@ $(function(){
   }
 
   function updateDueLockState(){
-    $('.due-item').toggleClass('due-locked', advancesAdded > 0);
+    var locked = advancesAdded > 0;
+    if (locked) {
+      // Un adelanto implica pagar todos los meses pendientes hasta la fecha
+      // adelantada: se seleccionan todos y quedan bloqueados para que no
+      // quede ningún mes anterior sin marcar.
+      $('.due-option').each(function(){
+        if (!this.checked) this.checked = true;
+      });
+    }
+    $('.due-item').toggleClass('due-locked', locked);
   }
 
   $(document).on('change', '.due-option', function(){
@@ -342,6 +360,7 @@ $(function(){
     }
   });
 
+  $(document).on('change', '#pagarMulta', recalcDueSelection);
   $(document).on('input', '#abono_deuda_extra', recalcDueSelection);
   $(document).on('input', 'input[name="mora"]', recalcDueSelection);
   $(document).on('dblclick', '.due-amount-display[data-editable-amount]', function(){
