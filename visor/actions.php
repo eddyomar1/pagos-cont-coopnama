@@ -173,6 +173,12 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   }
 
   try{
+    $pdo->beginTransaction();
+
+    // Si se adelantó el mes de inicio de pago, cancela las mensualidades
+    // pendientes que hayan quedado antes de la nueva fecha (si tiene alguna).
+    cancelar_mensualidades_previas_local($pdo, $id, $fecha_x_pagar);
+
     if (defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL) {
       $stmt=$pdo->prepare(
         "UPDATE residentes SET
@@ -199,8 +205,11 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
         $fecha_x_pagar,$fecha_pagada,$mora,$monto_a_pagar,$monto_pagado,$no_recurrente,$id
       ]);
     }
+
+    $pdo->commit();
     header('Location:?action=full&updated=1'); exit;
   }catch(PDOException $ex){
+    if ($pdo->inTransaction()) $pdo->rollBack();
     $_SESSION['errors']=[ "No se pudo actualizar: ".$ex->getCode() ];
     $_SESSION['old']=$_POST; header('Location:?action=edit&id='.$id); exit;
   }

@@ -362,6 +362,34 @@ function registrar_meses_exonerados_local(PDO $pdo, int $residenteId, array $mes
   ]);
 }
 
+/**
+ * Cancela (marca como pagadas en RD$0) las mensualidades pendientes de un
+ * residente que queden antes de su nueva fecha de inicio de pago. Se usa al
+ * editar un residente y adelantar el "Mes/Año inicio de pago": las cuotas
+ * pendientes previas a esa fecha ya no aplican y se cancelan automáticamente.
+ * Si no hay mensualidades pendientes antes de la nueva fecha, no hace nada.
+ */
+function cancelar_mensualidades_previas_local(PDO $pdo, int $residenteId, string $nuevaFechaXPagar): array{
+  if (!preg_match('~^\d{4}-\d{2}-\d{2}$~', $nuevaFechaXPagar)) return [];
+
+  $pendientes = cuotas_pendientes_residente_local($pdo, $residenteId, BASE_DUE);
+  $mesesACancelar = array_values(array_filter(
+    $pendientes,
+    function($mes) use ($nuevaFechaXPagar){ return strcmp($mes, $nuevaFechaXPagar) < 0; }
+  ));
+
+  if ($mesesACancelar) {
+    registrar_meses_exonerados_local(
+      $pdo,
+      $residenteId,
+      $mesesACancelar,
+      'Cancelación automática: mensualidad anterior a la nueva fecha de inicio de pago ('.$nuevaFechaXPagar.')'
+    );
+  }
+
+  return $mesesACancelar;
+}
+
 function desexonerar_residente_local(PDO $pdo, int $residenteId): array{
   $st = $pdo->prepare("SELECT exonerado, exonerado_desde FROM residentes WHERE id = ? LIMIT 1");
   $st->execute([$residenteId]);
