@@ -8,7 +8,7 @@ if ($hasDeudaInicial) {
   $columns .= ", deuda_inicial, deuda_extra";
 }
 $columns .= ", exonerado, exonerado_desde";
-$rows=$pdo->query("SELECT $columns FROM residentes ORDER BY id DESC")->fetchAll();
+$rows=$pdo->query("SELECT $columns FROM ".t_residentes()." ORDER BY id DESC")->fetchAll();
 $fieldsToCheck = [
   'cedula'            => 'Cédula',
   'codigo'            => 'Código',
@@ -40,7 +40,6 @@ if(!empty($_SESSION['errors'] ?? [])){
           <th>Deuda actual</th>
         <?php endif; ?>
         <th>Estado</th>
-        <th class="text-center actions-col">Acciones</th>
       </tr></thead>
       <tbody>
       <?php foreach($rows as $r):
@@ -54,7 +53,7 @@ if(!empty($_SESSION['errors'] ?? [])){
         }
         $hasMissing=!empty($missing);
       ?>
-        <tr class="<?= $hasMissing ? 'table-warning' : '' ?>" tabindex="0">
+        <tr class="<?= $hasMissing ? 'table-warning' : '' ?>" tabindex="0" data-edit-url="?action=edit&id=<?= (int)$r['id'] ?>">
           <td><?= e(format_cedula($r['cedula'])) ?></td>
           <td><?= e($r['codigo']) ?></td>
           <td><?= e($r['edif_apto']) ?></td>
@@ -73,12 +72,6 @@ if(!empty($_SESSION['errors'] ?? [])){
             <?php else: ?>
               <span class="badge text-bg-success">Completo</span>
             <?php endif; ?>
-          </td>
-          <td class="text-center actions-col">
-            <div class="actions d-inline-flex gap-1">
-              <a class="btn btn-warning btn-sm" href="?action=edit&id=<?= (int)$r['id'] ?>">Editar</a>
-              <a class="btn btn-danger btn-sm btn-delete" href="?action=delete&id=<?= (int)$r['id'] ?>">Eliminar</a>
-            </div>
           </td>
         </tr>
       <?php endforeach; ?>

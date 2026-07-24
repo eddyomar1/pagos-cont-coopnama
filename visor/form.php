@@ -25,7 +25,7 @@ $hasDeudaInicial = defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL;
 if($editing){
   $id=(int)($_GET['id'] ?? 0);
   if($id<=0){ header('Location:?action=full'); exit; }
-  $st=$pdo->prepare("SELECT * FROM residentes WHERE id=?");
+  $st=$pdo->prepare("SELECT * FROM ".t_residentes()." WHERE id=?");
   $st->execute([$id]);
   $row=$st->fetch();
   if(!$row){ header('Location:?action=full'); exit; }
@@ -194,11 +194,69 @@ $(function(){
 
 <div class="row justify-content-center mt-3"><div class="col-lg-10">
   <div class="card"><div class="card-body">
-    <div class="d-flex justify-content-end gap-2">
-      <button form="residenteForm" class="btn btn-primary"><?=$editing?'Actualizar':'Guardar'?></button>
-      <a class="btn btn-outline-secondary" href="?action=full">Cancelar</a>
+    <div class="d-flex justify-content-between gap-2">
+      <?php if($editing): ?>
+        <button type="button" class="btn btn-outline-danger" id="btnDeleteResidente"
+                data-delete-url="?action=delete&id=<?= (int)$data['id'] ?>">
+          <i class="bi bi-trash"></i> Eliminar
+        </button>
+      <?php else: ?>
+        <span></span>
+      <?php endif; ?>
+      <div class="d-flex gap-2">
+        <button form="residenteForm" class="btn btn-primary"><?=$editing?'Actualizar':'Guardar'?></button>
+        <a class="btn btn-outline-secondary" href="?action=full">Cancelar</a>
+      </div>
     </div>
   </div></div>
 </div></div>
+
+<?php if($editing): ?>
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Eliminar registro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p>Esta acción eliminará permanentemente a <strong><?= e($data['nombres_apellidos']) ?></strong> y no se puede deshacer.</p>
+        <p class="mb-2">Para confirmar, escribe <strong>BORRAR</strong> en el siguiente campo:</p>
+        <input type="text" class="form-control" id="deleteConfirmInput" autocomplete="off">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="deleteConfirmBtn" disabled>Eliminar definitivamente</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+$(function(){
+  var $deleteBtn  = $('#btnDeleteResidente');
+  var $modal      = $('#deleteConfirmModal');
+  var $input      = $('#deleteConfirmInput');
+  var $confirmBtn = $('#deleteConfirmBtn');
+  var deleteUrl   = $deleteBtn.data('delete-url');
+
+  $deleteBtn.on('click', function(){
+    $input.val('');
+    $confirmBtn.prop('disabled', true);
+    $modal.modal('show');
+  });
+  $modal.on('shown.bs.modal', function(){ $input.trigger('focus'); });
+
+  $input.on('input', function(){
+    $confirmBtn.prop('disabled', $input.val().trim() !== 'BORRAR');
+  });
+
+  $confirmBtn.on('click', function(){
+    if ($input.val().trim() === 'BORRAR') {
+      window.location.href = deleteUrl;
+    }
+  });
+});
+</script>
+<?php endif; ?>
 <?php
 footer_html();

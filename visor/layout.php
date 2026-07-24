@@ -72,13 +72,7 @@ function header_html($title='Residentes'){
 	 hr{border:none;border-top:1px solid var(--border);margin:20px 12px;}
 	 .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
  .btn-rounded{border-radius:2rem}.table thead th{font-weight:600}
- /* Acciones solo en hover/focus (accesible) */
- td .actions{visibility:hidden; opacity:0; transition:opacity .18s ease-in-out; white-space:nowrap;}
- tbody tr:hover .actions,
- tbody tr:focus-within .actions{visibility:visible; opacity:1;}
- /* En pantallas táctiles (sin hover), siempre visibles */
- @media (hover:none){ td .actions{visibility:visible; opacity:1;} }
- th.actions-col, td.actions-col{width: 140px;}
+ tbody tr[data-edit-url]{cursor:pointer;}
  body.sidebar-collapsed .sidebar{transform:translateX(-100%);}
  body.sidebar-collapsed .content{margin-left:0;}
 @media (max-width: 992px){
@@ -93,7 +87,7 @@ function header_html($title='Residentes'){
     <button type="button" id="sidebarToggle" class="btn btn-outline-secondary btn-sm" aria-label="Menú">
       <i class="bi bi-list"></i>
     </button>
-    COOPNAMA II
+    <?= e(app_env_brand()) ?>
   </div>
 </header>
 <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
@@ -110,7 +104,7 @@ function header_html($title='Residentes'){
   <?php if($showDev): ?>
     <hr>
     <div class="section-title">Dev</div>
-    <a class="menu-item <?= $isDev?'active':'' ?>" href="/eo/coopnama/contactos/visor/dev/pagos_duplicados.php?clave=<?= urlencode(DEV_ACCESS_KEY) ?>">
+    <a class="menu-item <?= $isDev?'active':'' ?>" href="<?= e(app_url('visor/dev/pagos_duplicados.php?clave='.urlencode(DEV_ACCESS_KEY))) ?>">
       <i class="bi bi-tools"></i><span>Pagos duplicados</span>
     </a>
   <?php endif; ?>
@@ -118,10 +112,10 @@ function header_html($title='Residentes'){
   <hr>
 
   <div class="section-title">Deudores</div>
-  <a class="menu-item <?= $isResList?'active':'' ?>" href="/eo/coopnama/contactos/index.php?page=residentes">
+  <a class="menu-item <?= $isResList?'active':'' ?>" href="<?= e(app_url('index.php?page=residentes')) ?>">
     <i class="bi bi-people"></i><span>Pagos</span>
   </a>
-  <a class="menu-item" href="/eo/coopnama/contactos/index.php?page=pagos">
+  <a class="menu-item" href="<?= e(app_url('index.php?page=pagos')) ?>">
     <i class="bi bi-check2-circle"></i><span>Registro de pagos</span>
   </a>
 
@@ -165,7 +159,10 @@ $(function(){
       columnDefs:[{targets:-1, className:'text-center'}]
     });
   }
-  $(document).on('click','.btn-delete',function(e){ if(!confirm('¿Eliminar este registro?')) e.preventDefault(); });
+  // Doble clic en una fila del listado abre su edición
+  $(document).on('dblclick', 'tbody tr[data-edit-url]', function(){
+    window.location.href = $(this).data('edit-url');
+  });
 
   // Sidebar: colapsable en desktop y offcanvas en móvil
   (function(){
