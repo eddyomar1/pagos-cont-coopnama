@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'anula
     $pdo->beginTransaction();
 
     // Bloquea el registro para evitar doble anulación simultánea
-    $st = $pdo->prepare("SELECT * FROM pagos_residentes WHERE id = ? FOR UPDATE");
+    $st = $pdo->prepare("SELECT * FROM ".t_pagos_residentes()." WHERE id = ? FOR UPDATE");
     $st->execute([$id]);
     $orig = $st->fetch();
     if (!$orig) {
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'anula
       throw new Exception('No se puede anular un registro de anulación.');
     }
 
-    $stChk = $pdo->prepare("SELECT id FROM pagos_residentes WHERE anulado_de = ? LIMIT 1");
+    $stChk = $pdo->prepare("SELECT id FROM ".t_pagos_residentes()." WHERE anulado_de = ? LIMIT 1");
     $stChk->execute([$id]);
     if ($stChk->fetchColumn()) {
       throw new Exception('Este pago ya fue anulado.');
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'anula
 
     if (defined('HAS_PAGOS_DETALLE_CUOTAS') && HAS_PAGOS_DETALLE_CUOTAS) {
       $ins = $pdo->prepare(
-        "INSERT INTO pagos_residentes
+        "INSERT INTO ".t_pagos_residentes()."
          (residente_id, fecha_recibo, fecha_pagada, meses_pagados, detalle_cuotas,
           monto_base, mora, total, observaciones, tipo, anulado_de)
          VALUES (?,?,?,?,?,?,?,?,?, 'anulacion', ?)"
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'anula
       ]);
     } else {
       $ins = $pdo->prepare(
-        "INSERT INTO pagos_residentes
+        "INSERT INTO ".t_pagos_residentes()."
          (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
           monto_base, mora, total, observaciones, tipo, anulado_de)
          VALUES (?,?,?,?,?,?,?,?, 'anulacion', ?)"
@@ -100,8 +100,8 @@ if ($viewAction === 'factura') {
           r.nombres_apellidos,
           r.cedula,
           r.telefono
-        FROM pagos_residentes p
-        LEFT JOIN residentes r ON r.id = p.residente_id
+        FROM ".t_pagos_residentes()." p
+        LEFT JOIN ".t_residentes()." r ON r.id = p.residente_id
         WHERE p.id = ?
         LIMIT 1
       ");
@@ -235,8 +235,8 @@ try{
       r.edif_apto,
       r.nombres_apellidos,
       r.cedula
-    FROM pagos_residentes p
-    LEFT JOIN residentes r ON r.id = p.residente_id
+    FROM ".t_pagos_residentes()." p
+    LEFT JOIN ".t_residentes()." r ON r.id = p.residente_id
     ORDER BY p.fecha_recibo DESC
   ";
   $rows = $pdo->query($sql)->fetchAll();

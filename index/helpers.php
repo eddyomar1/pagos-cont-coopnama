@@ -191,7 +191,7 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
   // Fecha base: usamos la fecha_x_pagar del residente, pero si en el historial
   // existen cuotas más antiguas (pagadas o anuladas), arrancamos desde la más antigua.
   try{
-    $stBase = $pdo->prepare("SELECT fecha_x_pagar FROM residentes WHERE id = ? LIMIT 1");
+    $stBase = $pdo->prepare("SELECT fecha_x_pagar FROM ".t_residentes()." WHERE id = ? LIMIT 1");
     $stBase->execute([$residenteId]);
     $fechaBaseRow = $stBase->fetchColumn();
   }catch(Throwable $e){
@@ -208,7 +208,7 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
 
   // Si está exonerado, no generar pendientes hasta que se reactive
   try{
-    $chk = $pdo->prepare("SELECT exonerado FROM residentes WHERE id = ? LIMIT 1");
+    $chk = $pdo->prepare("SELECT exonerado FROM ".t_residentes()." WHERE id = ? LIMIT 1");
     $chk->execute([$residenteId]);
     $ex = $chk->fetchColumn();
     if ($ex) {
@@ -223,10 +223,10 @@ function cuotas_pendientes_residente(PDO $pdo, int $residenteId, ?string $base=n
   //    - Una anulación resta -1
   //    Compat: si la columna tipo no existe aún, caemos a detectar por total < 0.
   try{
-    $st = $pdo->prepare("SELECT meses_pagados, total, tipo FROM pagos_residentes WHERE residente_id = ?");
+    $st = $pdo->prepare("SELECT meses_pagados, total, tipo FROM ".t_pagos_residentes()." WHERE residente_id = ?");
     $st->execute([$residenteId]);
   }catch(Throwable $e){
-    $st = $pdo->prepare("SELECT meses_pagados, total FROM pagos_residentes WHERE residente_id = ?");
+    $st = $pdo->prepare("SELECT meses_pagados, total FROM ".t_pagos_residentes()." WHERE residente_id = ?");
     $st->execute([$residenteId]);
   }
 
@@ -296,10 +296,10 @@ function ensure_deuda_inicial_column(PDO $pdo): bool{
 
   $checked = true;
   try{
-    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'deuda_inicial'");
+    $st = $pdo->query("SHOW COLUMNS FROM ".t_residentes()." LIKE 'deuda_inicial'");
     $exists = (bool) ($st && $st->fetch());
     if (!$exists) {
-      $pdo->exec("ALTER TABLE residentes ADD COLUMN deuda_inicial DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER telefono");
+      $pdo->exec("ALTER TABLE ".t_residentes()." ADD COLUMN deuda_inicial DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER telefono");
       $exists = true;
     }
   }catch(Throwable $e){
@@ -325,18 +325,18 @@ function ensure_exonerado_columns(PDO $pdo): bool{
   $checked = true;
   $ok = true;
   try{
-    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'exonerado'");
+    $st = $pdo->query("SHOW COLUMNS FROM ".t_residentes()." LIKE 'exonerado'");
     if (!$st || !$st->fetch()) {
-      $pdo->exec("ALTER TABLE residentes ADD COLUMN exonerado TINYINT(1) NOT NULL DEFAULT 0 AFTER no_recurrente");
+      $pdo->exec("ALTER TABLE ".t_residentes()." ADD COLUMN exonerado TINYINT(1) NOT NULL DEFAULT 0 AFTER no_recurrente");
     }
   }catch(Throwable $e){
     $ok = false;
   }
 
   try{
-    $st = $pdo->query("SHOW COLUMNS FROM residentes LIKE 'exonerado_desde'");
+    $st = $pdo->query("SHOW COLUMNS FROM ".t_residentes()." LIKE 'exonerado_desde'");
     if (!$st || !$st->fetch()) {
-      $pdo->exec("ALTER TABLE residentes ADD COLUMN exonerado_desde DATETIME NULL DEFAULT NULL AFTER exonerado");
+      $pdo->exec("ALTER TABLE ".t_residentes()." ADD COLUMN exonerado_desde DATETIME NULL DEFAULT NULL AFTER exonerado");
     }
   }catch(Throwable $e){
     $ok = false;
@@ -361,9 +361,9 @@ function ensure_pagos_anulacion_columns(PDO $pdo): bool{
   $ok = true;
 
   try{
-    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'tipo'");
+    $st = $pdo->query("SHOW COLUMNS FROM ".t_pagos_residentes()." LIKE 'tipo'");
     if (!$st || !$st->fetch()) {
-      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN tipo ENUM('pago','anulacion') NOT NULL DEFAULT 'pago'");
+      $pdo->exec("ALTER TABLE ".t_pagos_residentes()." ADD COLUMN tipo ENUM('pago','anulacion') NOT NULL DEFAULT 'pago'");
     }
   }catch(Throwable $e){
     $ok = false;
@@ -371,11 +371,11 @@ function ensure_pagos_anulacion_columns(PDO $pdo): bool{
   }
 
   try{
-    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'anulado_de'");
+    $st = $pdo->query("SHOW COLUMNS FROM ".t_pagos_residentes()." LIKE 'anulado_de'");
     if (!$st || !$st->fetch()) {
-      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN anulado_de INT NULL DEFAULT NULL");
+      $pdo->exec("ALTER TABLE ".t_pagos_residentes()." ADD COLUMN anulado_de INT NULL DEFAULT NULL");
       // Índice útil para buscar anulaciones rápido
-      try { $pdo->exec("CREATE INDEX idx_pagos_anulado_de ON pagos_residentes(anulado_de)"); } catch(Throwable $e) {}
+      try { $pdo->exec("CREATE INDEX idx_pagos_anulado_de ON ".t_pagos_residentes()."(anulado_de)"); } catch(Throwable $e) {}
     }
   }catch(Throwable $e){
     $ok = false;
@@ -394,10 +394,10 @@ function ensure_pagos_detalle_cuotas_column(PDO $pdo): bool{
   $ok = true;
 
   try{
-    $st = $pdo->query("SHOW COLUMNS FROM pagos_residentes LIKE 'detalle_cuotas'");
+    $st = $pdo->query("SHOW COLUMNS FROM ".t_pagos_residentes()." LIKE 'detalle_cuotas'");
     $exists = (bool)($st && $st->fetch());
     if (!$exists) {
-      $pdo->exec("ALTER TABLE pagos_residentes ADD COLUMN detalle_cuotas LONGTEXT NULL DEFAULT NULL AFTER meses_pagados");
+      $pdo->exec("ALTER TABLE ".t_pagos_residentes()." ADD COLUMN detalle_cuotas LONGTEXT NULL DEFAULT NULL AFTER meses_pagados");
     }
   }catch(Throwable $e){
     $ok = false;

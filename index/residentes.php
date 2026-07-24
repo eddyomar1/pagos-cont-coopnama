@@ -35,15 +35,22 @@ function residentes_icono_estado(bool $tiene_deuda, int $meses_adeudados=0, bool
   return '<span class="text-success" title="Al dia">&#10003;</span>';
 }
 
-function residentes_match_busqueda(array $row, string $q): bool{
+function residentes_match_busqueda(array $row, string $q, array $meta=[]): bool{
   $q = trim(mb_strtolower($q, 'UTF-8'));
   if ($q === '') return true;
+
+  $tiene_deuda = (bool)($meta['tiene_deuda'] ?? $row['_tiene_deuda'] ?? false);
+  $meses_adeudados = (int)($meta['meses_adeudados'] ?? $row['_meses_adeudados'] ?? 0);
+  $estado = $tiene_deuda
+    ? $meses_adeudados.' deuda pendiente atrasado'
+    : 'al dia pagado';
 
   $haystack = mb_strtolower(implode(' ', [
     (string)($row['edif_apto'] ?? ''),
     (string)($row['nombres_apellidos'] ?? ''),
     (string)format_cedula((string)($row['cedula'] ?? '')),
     (string)($row['telefono'] ?? ''),
+    $estado,
   ]), 'UTF-8');
 
   return mb_strpos($haystack, $q) !== false;
@@ -60,7 +67,7 @@ function residentes_filtrados(PDO $pdo, array $rows, string $status, string $q='
     if ($status === 'pagados' && $meta['tiene_deuda']) {
       continue;
     }
-    if (!residentes_match_busqueda($r, $q)) {
+    if (!residentes_match_busqueda($r, $q, $meta)) {
       continue;
     }
 
@@ -71,6 +78,44 @@ function residentes_filtrados(PDO $pdo, array $rows, string $status, string $q='
     $filtered[] = $r;
   }
   return $filtered;
+}
+
+function residentes_ordenados(array $rows, int $order_col, string $order_dir): array{
+  $columns = [
+    0 => 'edif_apto',
+    1 => 'nombres_apellidos',
+    2 => 'cedula',
+    3 => 'telefono',
+    4 => '_meses_adeudados',
+  ];
+  if (!isset($columns[$order_col])) {
+    return $rows;
+  }
+
+  $key = $columns[$order_col];
+  $direction = strtolower($order_dir) === 'asc' ? 1 : -1;
+
+  usort($rows, function(array $a, array $b) use ($key, $direction){
+    if ($key === '_meses_adeudados') {
+      $cmp = ((int)($a['_meses_adeudados'] ?? 0)) <=> ((int)($b['_meses_adeudados'] ?? 0));
+      if ($cmp === 0) {
+        $cmp = strcmp((string)($a['nombres_apellidos'] ?? ''), (string)($b['nombres_apellidos'] ?? ''));
+      }
+      return $cmp * $direction;
+    }
+
+    $left = $key === 'cedula'
+      ? format_cedula((string)($a[$key] ?? ''))
+      : (string)($a[$key] ?? '');
+    $right = $key === 'cedula'
+      ? format_cedula((string)($b[$key] ?? ''))
+      : (string)($b[$key] ?? '');
+    $cmp = strnatcasecmp($left, $right);
+
+    return $cmp * $direction;
+  });
+
+  return $rows;
 }
 
 /*********** 3) Acciones CRUD ***********/
@@ -102,7 +147,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   try{
     if (defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL) {
       $stmt=$pdo->prepare(
-        "INSERT INTO residentes
+        "INSERT INTO ".t_residentes()."
          (edif_apto,nombres_apellidos,cedula,codigo,telefono,
           fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_inicial,deuda_extra,no_recurrente)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)"
@@ -119,7 +164,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
       ]);
     } else {
       $stmt=$pdo->prepare(
-        "INSERT INTO residentes
+        "INSERT INTO ".t_residentes()."
          (edif_apto,nombres_apellidos,cedula,codigo,telefono,
           fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,deuda_extra,no_recurrente)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,0)"
@@ -151,7 +196,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     header('Location:index.php'); exit;
   }
 
-  $st = $pdo->prepare("SELECT * FROM residentes WHERE id=?");
+  $st = $pdo->prepare("SELECT * FROM ".t_residentes()." WHERE id=?");
   $st->execute([$id]);
   $residente = $st->fetch();
   if(!$residente){
@@ -203,7 +248,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
     // Objetivo: actualizar solo la deuda_extra del residente.
     try{
       $stmt=$pdo->prepare(
-        "UPDATE residentes SET
+        "UPDATE ".t_residentes()." SET
           edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
           deuda_extra=?
          WHERE id=?"
@@ -273,7 +318,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
 
     // Actualizar residente
     $stmt=$pdo->prepare(
-      "UPDATE residentes SET
+      "UPDATE ".t_residentes()." SET
         edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
         fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, deuda_extra=?, no_recurrente=?
        WHERE id=?"
@@ -290,7 +335,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
       : null;
     if (defined('HAS_PAGOS_DETALLE_CUOTAS') && HAS_PAGOS_DETALLE_CUOTAS) {
       $stmt2 = $pdo->prepare(
-        "INSERT INTO pagos_residentes
+        "INSERT INTO ".t_pagos_residentes()."
          (residente_id, fecha_recibo, fecha_pagada, meses_pagados, detalle_cuotas,
           monto_base, mora, total, observaciones)
          VALUES (?,?,?,?,?,?,?,?,?)"
@@ -308,7 +353,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
       ]);
     } else {
       $stmt2 = $pdo->prepare(
-        "INSERT INTO pagos_residentes
+        "INSERT INTO ".t_pagos_residentes()."
          (residente_id, fecha_recibo, fecha_pagada, meses_pagados,
           monto_base, mora, total, observaciones)
          VALUES (?,?,?,?,?,?,?,?)"
@@ -344,7 +389,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
 if ($action === 'delete' && isset($_GET['id'])) {
   $id=(int)$_GET['id'];
   if($id>0){
-    $pdo->prepare("DELETE FROM residentes WHERE id=?")->execute([$id]);
+    $pdo->prepare("DELETE FROM ".t_residentes()." WHERE id=?")->execute([$id]);
   }
   header('Location:index.php?deleted=1'); exit;
 }
@@ -355,16 +400,19 @@ if ($action === 'delete' && isset($_GET['id'])) {
 if ($action === 'print') {
   $status = $_GET['status'] ?? 'pendientes';
   $q = trim((string)($_GET['q'] ?? ''));
+  $order_col = (int)($_GET['order_col'] ?? -1);
+  $order_dir = (string)($_GET['order_dir'] ?? 'asc');
 
   render_header('Imprimir copropietarios','residentes');
   $rows = [];
   try{
-    $rows = $pdo->query("SELECT * FROM residentes ORDER BY id DESC")->fetchAll();
+    $rows = $pdo->query("SELECT * FROM ".t_residentes()." ORDER BY id DESC")->fetchAll();
   }catch(Throwable $e){
     app_log('Error listando residentes para imprimir '.$status.': '.$e->getMessage());
     $rows = [];
   }
   $rows = residentes_filtrados($pdo, $rows, $status, $q);
+  $rows = residentes_ordenados($rows, $order_col, $order_dir);
   ?>
   <style>
     .print-list-link{
@@ -446,7 +494,7 @@ if ($action === 'index') {
   render_header('Residentes','residentes');
   $rows = [];
   try{
-    $rows=$pdo->query("SELECT * FROM residentes ORDER BY id DESC")->fetchAll();
+    $rows=$pdo->query("SELECT * FROM ".t_residentes()." ORDER BY id DESC")->fetchAll();
   }catch(Throwable $e){
     app_log('Error listando residentes '.$status.': '.$e->getMessage());
     $rows = [];
@@ -557,6 +605,18 @@ if ($action === 'index') {
     } else {
       url.searchParams.delete('q');
     }
+    if (window.jQuery && jQuery.fn.dataTable && jQuery.fn.dataTable.isDataTable('#tabla')) {
+      var table = jQuery('#tabla').DataTable();
+      var order = table.order();
+      var currentSearch = String(table.search() || '').trim();
+      if (currentSearch !== '') {
+        url.searchParams.set('q', currentSearch);
+      }
+      if (order && order.length) {
+        url.searchParams.set('order_col', order[0][0]);
+        url.searchParams.set('order_dir', order[0][1]);
+      }
+    }
     link.setAttribute('href', url.toString());
   });
   </script>
@@ -593,7 +653,7 @@ if ($action==='new' || $action==='pagar') {
   if($editing){
     $id=(int)($_GET['id'] ?? 0);
     if($id<=0){ header('Location:index.php'); exit; }
-    $st=$pdo->prepare("SELECT * FROM residentes WHERE id=?");
+    $st=$pdo->prepare("SELECT * FROM ".t_residentes()." WHERE id=?");
     $st->execute([$id]);
     $row=$st->fetch();
     if(!$row){ header('Location:index.php'); exit; }

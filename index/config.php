@@ -1,11 +1,14 @@
 <?php
 // index/config.php – configuración de app y DB
 
+require_once __DIR__ . '/../test_env.php';
+
 // Credenciales DB
 $dbHost = 'localhost';
 $dbName = 'u138076177_pw';
 $dbUser = 'u138076177_chacharito';
 $dbPass = '3spWifiPruev@';
+
 
 // Fecha base a partir de la cual se cuentan las cuotas (día configurable)
 const BASE_DUE    = '2025-10-05'; // cámbiala aquí si necesitas

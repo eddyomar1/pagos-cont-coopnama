@@ -7,7 +7,7 @@ $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['desexonerar_id'])) {
   $rid = (int)$_POST['desexonerar_id'];
   try{
-    $stmt = $pdo->prepare("UPDATE residentes SET exonerado=0, exonerado_desde=NULL WHERE id=?");
+    $stmt = $pdo->prepare("UPDATE ".t_residentes()." SET exonerado=0, exonerado_desde=NULL WHERE id=?");
     $stmt->execute([$rid]);
     $msg = "Se quitó la exoneración del residente #{$rid}.";
   }catch(Throwable $e){
@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['desexonerar_id'])) {
 }
 
 try{
-  $sql = "SELECT id, edif_apto, nombres_apellidos, cedula, telefono, exonerado_desde FROM residentes WHERE exonerado = 1 ORDER BY exonerado_desde DESC";
+  $sql = "SELECT id, edif_apto, nombres_apellidos, cedula, telefono, exonerado_desde FROM ".t_residentes()." WHERE exonerado = 1 ORDER BY exonerado_desde DESC";
   $rows = $pdo->query($sql)->fetchAll();
 }catch(Throwable $e){
   $rows = [];

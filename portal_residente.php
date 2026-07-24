@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+require_once __DIR__ . '/test_env.php';
+
 /*********** 1) Conexión ***********/
 $dbHost = 'localhost';
 $dbName = 'u138076177_pw';
@@ -14,6 +16,7 @@ $options = [
 ];
 try { $pdo = new PDO($dsn, $dbUser, $dbPass, $options); }
 catch(Throwable $e){ http_response_code(500); exit("DB error: ".htmlspecialchars($e->getMessage())); }
+ensure_test_environment_tables($pdo);
 
 /*********** 2) Helpers ***********/
 function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
@@ -73,7 +76,7 @@ function header_html($title='Mis pagos'){
 <nav class="navbar navbar-expand-lg bg-white shadow-sm">
   <div class="container">
     <!-- Cambiado el texto del brand -->
-    <a class="navbar-brand fw-bold" href="portal_residente.php">Bienvenido a tu panel de pagos</a>
+    <a class="navbar-brand fw-bold" href="portal_residente.php">Bienvenido a tu panel de pagos - <?= e(APP_ENV_LABEL) ?></a>
     <div class="ms-auto d-flex gap-2">
       <?php if(!empty($residente)): ?>
         <span class="navbar-text me-2 d-none d-sm-inline">
@@ -133,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['cedula'])) {
   if (!cedula_valida($cedula_digits)) {
     $error = "La cédula no es válida. Verifícala e inténtalo de nuevo.";
   } else {
-    $stmt = $pdo->prepare("SELECT * FROM residentes WHERE cedula = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT * FROM ".t_residentes()." WHERE cedula = ? LIMIT 1");
     $stmt->execute([$cedula_digits]);
     $residente = $stmt->fetch();
 
@@ -158,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['cedula'])) {
 if (!$residente && isset($_COOKIE['cedula_residente'])) {
   $ced = digits_only($_COOKIE['cedula_residente']);
   if ($ced) {
-    $stmt = $pdo->prepare("SELECT * FROM residentes WHERE cedula = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT * FROM ".t_residentes()." WHERE cedula = ? LIMIT 1");
     $stmt->execute([$ced]);
     $residente = $stmt->fetch();
     if (!$residente) {
@@ -170,7 +173,7 @@ if (!$residente && isset($_COOKIE['cedula_residente'])) {
 
 /* Si ya tenemos residente válido, cargamos sus pagos */
 if ($residente) {
-  $st = $pdo->prepare("SELECT * FROM pagos_residentes WHERE residente_id = ? ORDER BY id DESC");
+  $st = $pdo->prepare("SELECT * FROM ".t_pagos_residentes()." WHERE residente_id = ? ORDER BY id DESC");
   $st->execute([$residente['id']]);
   $pagos = $st->fetchAll();
 }

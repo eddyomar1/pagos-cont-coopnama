@@ -17,7 +17,7 @@ if ($action === 'exonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
 
     // Registrar un pago con monto 0 para marcar meses como exonerados
     $stmt = $pdo->prepare(
-      "INSERT INTO pagos_residentes
+      "INSERT INTO ".t_pagos_residentes()."
        (residente_id, fecha_recibo, fecha_pagada, meses_pagados, monto_base, mora, total, observaciones)
        VALUES (?,?,?,?,?,?,?,?)"
     );
@@ -32,7 +32,7 @@ if ($action === 'exonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
 
     // Limpiar montos y moras en la tabla principal y marcar exonerado
     $pdo->prepare(
-      "UPDATE residentes
+      "UPDATE ".t_residentes()."
        SET fecha_pagada=?, mora=0, monto_a_pagar=0, monto_pagado=0, deuda_extra=0, exonerado=1, exonerado_desde=?
        WHERE id=?"
     )->execute([$fechaHoy, $fechaAhora, $id]);
@@ -62,7 +62,7 @@ if ($action === 'desexonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
       (int)DUE_DAY
     )->modify('-1 month')->format('Y-m-d');
 
-    $stmt = $pdo->prepare("UPDATE residentes SET exonerado=0, exonerado_desde=NULL, fecha_pagada=? WHERE id=?");
+    $stmt = $pdo->prepare("UPDATE ".t_residentes()." SET exonerado=0, exonerado_desde=NULL, fecha_pagada=? WHERE id=?");
     $stmt->execute([$fechaAnterior, $id]);
     header('Location:?action=edit&id='.$id.'&desexonerado=1'); exit;
   }catch(PDOException $ex){
@@ -107,7 +107,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
   try{
     if (defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL) {
       $stmt=$pdo->prepare(
-        "INSERT INTO residentes
+        "INSERT INTO ".t_residentes()."
          (edif_apto,nombres_apellidos,cedula,codigo,telefono,deuda_inicial,deuda_extra,fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,no_recurrente)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
       );
@@ -118,7 +118,7 @@ if ($action === 'store' && $_SERVER['REQUEST_METHOD']==='POST') {
       ]);
     } else {
       $stmt=$pdo->prepare(
-        "INSERT INTO residentes
+        "INSERT INTO ".t_residentes()."
          (edif_apto,nombres_apellidos,cedula,codigo,telefono,fecha_x_pagar,fecha_pagada,mora,monto_a_pagar,monto_pagado,no_recurrente)
          VALUES (?,?,?,?,?,?,?,?,?,?,?)"
       );
@@ -173,7 +173,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
   try{
     if (defined('HAS_DEUDA_INICIAL') && HAS_DEUDA_INICIAL) {
       $stmt=$pdo->prepare(
-        "UPDATE residentes SET
+        "UPDATE ".t_residentes()." SET
           edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
           deuda_inicial=?, deuda_extra=?,
           fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
@@ -186,7 +186,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
       ]);
     } else {
       $stmt=$pdo->prepare(
-        "UPDATE residentes SET
+        "UPDATE ".t_residentes()." SET
           edif_apto=?, nombres_apellidos=?, cedula=?, codigo=?, telefono=?,
           fecha_x_pagar=?, fecha_pagada=?, mora=?, monto_a_pagar=?, monto_pagado=?, no_recurrente=?
          WHERE id=?"
@@ -207,7 +207,7 @@ if ($action === 'update' && $_SERVER['REQUEST_METHOD']==='POST') {
 if ($action === 'delete' && isset($_GET['id'])) {
   $id=(int)$_GET['id'];
   if($id>0){
-    $pdo->prepare("DELETE FROM residentes WHERE id=?")->execute([$id]);
+    $pdo->prepare("DELETE FROM ".t_residentes()." WHERE id=?")->execute([$id]);
   }
   header('Location:?action=full&deleted=1'); exit;
 }

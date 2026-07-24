@@ -14,7 +14,7 @@ if ($provided !== DEV_ACCESS_KEY) {
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
   $delId = (int)$_POST['delete_id'];
-  $stmt = $pdo->prepare("DELETE FROM pagos_residentes WHERE id = ?");
+  $stmt = $pdo->prepare("DELETE FROM ".t_pagos_residentes()." WHERE id = ?");
   if ($stmt->execute([$delId])) {
     $message = "Pago #{$delId} eliminado.";
   } else {
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
 // Obtener pagos y agruparlos por fecha_recibo al minuto
 $grupos = [];
 try{
-  $rows = $pdo->query("SELECT p.*, r.nombres_apellidos, r.edif_apto, r.cedula FROM pagos_residentes p LEFT JOIN residentes r ON r.id = p.residente_id ORDER BY p.fecha_recibo DESC")->fetchAll();
+  $rows = $pdo->query("SELECT p.*, r.nombres_apellidos, r.edif_apto, r.cedula FROM ".t_pagos_residentes()." p LEFT JOIN ".t_residentes()." r ON r.id = p.residente_id ORDER BY p.fecha_recibo DESC")->fetchAll();
   foreach ($rows as $p) {
     $key = date('Y-m-d H:i', strtotime($p['fecha_recibo']));
     $grupos[$key][] = $p;

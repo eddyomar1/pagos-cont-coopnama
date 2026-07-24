@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+require_once __DIR__ . '/test_env.php';
+
 /*********** 1) Conexión ***********/
 $dbHost = 'localhost';
 $dbName = 'u138076177_pw';
@@ -18,6 +20,7 @@ try {
   http_response_code(500);
   exit("DB error: ".htmlspecialchars($e->getMessage()));
 }
+ensure_test_environment_tables($pdo);
 
 /*********** 2) Helpers ***********/
 function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
@@ -57,7 +60,7 @@ function header_html($title='Cambiar cédula'){
 <body>
 <nav class="navbar navbar-expand-lg bg-white shadow-sm">
   <div class="container">
-    <a class="navbar-brand fw-bold" href="portal_residente.php">RESIDENCIAL COOPNAMA II</a>
+    <a class="navbar-brand fw-bold" href="portal_residente.php"><?= e(app_env_brand()) ?></a>
     <div class="ms-auto">
       <a href="portal_residente.php" class="btn btn-sm btn-outline-secondary">Volver al portal</a>
     </div>
@@ -120,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
       // Coincide con la cookie, ahora usamos la BDD solo para obtener el nombre
-      $st = $pdo->prepare("SELECT id, nombres_apellidos, cedula FROM residentes WHERE cedula = ? LIMIT 1");
+      $st = $pdo->prepare("SELECT id, nombres_apellidos, cedula FROM ".t_residentes()." WHERE cedula = ? LIMIT 1");
       $st->execute([$cedula_actual]);
       $row = $st->fetch();
 
@@ -167,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       } else {
         // Usamos la BDD SOLO para verificar que la nueva cédula existe y obtener el nombre
-        $st = $pdo->prepare("SELECT id, nombres_apellidos, cedula FROM residentes WHERE cedula = ? LIMIT 1");
+        $st = $pdo->prepare("SELECT id, nombres_apellidos, cedula FROM ".t_residentes()." WHERE cedula = ? LIMIT 1");
         $st->execute([$cedula_nueva]);
         $nuevo = $st->fetch();
 

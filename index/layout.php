@@ -92,27 +92,27 @@ function render_header(string $title='Residentes', string $active='residentes'){
     <button type="button" id="sidebarToggle" class="btn btn-outline-secondary btn-sm" aria-label="Menú">
       <i class="bi bi-list"></i>
     </button>
-    COOPNAMA II
+    <?= e(app_env_brand()) ?>
   </div>
 </header>
 <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 
 <nav class="sidebar">
   <div class="section-title">Propietarios</div>
-  <a href="/eo/coopnama/contactos/visor.php?action=full" class="menu-item <?= $isVisor?'active':'' ?>">
+  <a href="<?= e(app_url('visor.php?action=full')) ?>" class="menu-item <?= $isVisor?'active':'' ?>">
     <i class="bi bi-card-checklist"></i><span>Registro</span>
   </a>
 
   <hr>
 
   <div class="section-title">Deudores</div>
-  <a href="/eo/coopnama/contactos/index.php?page=residentes" class="menu-item <?= $isResList?'active':'' ?>">
+  <a href="<?= e(app_url('index.php?page=residentes')) ?>" class="menu-item <?= $isResList?'active':'' ?>">
     <i class="bi bi-people"></i><span>Pagos</span>
   </a>
-  <a href="/eo/coopnama/contactos/index.php?page=pagos" class="menu-item <?= $isPagos?'active':'' ?>">
+  <a href="<?= e(app_url('index.php?page=pagos')) ?>" class="menu-item <?= $isPagos?'active':'' ?>">
     <i class="bi bi-check2-circle"></i><span>Registro de pagos</span>
   </a>
-  <a href="/eo/coopnama/contactos/index.php?page=exonerados" class="menu-item <?= $isExoList?'active':'' ?>">
+  <a href="<?= e(app_url('index.php?page=exonerados')) ?>" class="menu-item <?= $isExoList?'active':'' ?>">
     <i class="bi bi-shield-check"></i><span>Exonerados</span>
   </a>
 

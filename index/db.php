@@ -11,6 +11,7 @@ if (!isset($pdo)) {
 
   try {
     $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
+    ensure_test_environment_tables($pdo);
   } catch (Throwable $e) {
     http_response_code(500);
     exit("DB error: " . htmlspecialchars($e->getMessage()));
