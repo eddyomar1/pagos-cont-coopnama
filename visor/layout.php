@@ -72,13 +72,7 @@ function header_html($title='Residentes'){
 	 hr{border:none;border-top:1px solid var(--border);margin:20px 12px;}
 	 .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
  .btn-rounded{border-radius:2rem}.table thead th{font-weight:600}
- /* Acciones solo en hover/focus (accesible) */
- td .actions{visibility:hidden; opacity:0; transition:opacity .18s ease-in-out; white-space:nowrap;}
- tbody tr:hover .actions,
- tbody tr:focus-within .actions{visibility:visible; opacity:1;}
- /* En pantallas táctiles (sin hover), siempre visibles */
- @media (hover:none){ td .actions{visibility:visible; opacity:1;} }
- th.actions-col, td.actions-col{width: 140px;}
+ tbody tr[data-edit-url]{cursor:pointer;}
  body.sidebar-collapsed .sidebar{transform:translateX(-100%);}
  body.sidebar-collapsed .content{margin-left:0;}
 @media (max-width: 992px){
@@ -165,7 +159,10 @@ $(function(){
       columnDefs:[{targets:-1, className:'text-center'}]
     });
   }
-  $(document).on('click','.btn-delete',function(e){ if(!confirm('¿Eliminar este registro?')) e.preventDefault(); });
+  // Doble clic en una fila del listado abre su edición
+  $(document).on('dblclick', 'tbody tr[data-edit-url]', function(){
+    window.location.href = $(this).data('edit-url');
+  });
 
   // Sidebar: colapsable en desktop y offcanvas en móvil
   (function(){
