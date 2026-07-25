@@ -1,6 +1,7 @@
 <?php
 /*********** 3) Acciones CRUD (store/update/delete) ***********/
 
+
 // EXONERAR CUOTAS PENDIENTES
 if ($action === 'exonerar' && $_SERVER['REQUEST_METHOD']==='POST') {
   $id = (int) body('id');
