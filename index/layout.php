@@ -40,6 +40,7 @@ function render_header(string $title='Residentes', string $active='residentes'){
    display:flex;align-items:center;justify-content:space-between;gap:16px;
    padding:0 24px;position:fixed;top:0;left:0;right:0;z-index:1000;
    box-shadow:var(--shadow-sm);font-size:20px;font-weight:600;
+   transition:transform .2s ease-in-out;
  }
  .topbar .brand{display:flex;align-items:center;gap:10px;}
  .sidebar{
@@ -71,7 +72,7 @@ function render_header(string $title='Residentes', string $active='residentes'){
 	 .menu-item.active svg,.menu-item.active i{opacity:1;color:#fff;}
 	 .menu-item:focus{outline:2px solid rgba(37,99,235,.35);outline-offset:2px;}
 	 .menu-item:focus-visible{outline:2px solid rgba(37,99,235,.55);}
-	 .content{margin-left:280px;padding:90px 24px 60px;min-height:100vh;transition:margin-left .2s ease-in-out;}
+	 .content{margin-left:280px;padding:90px 24px 60px;min-height:100vh;transition:margin-left .2s ease-in-out,padding-top .2s ease-in-out;}
 	 .content-inner{max-width:1600px;margin:0 auto;}
 	 hr{border:none;border-top:1px solid var(--border);margin:20px 12px;}
 	 .card{border:0;box-shadow:0 8px 24px rgba(0,0,0,.06);border-radius:1rem}
@@ -79,13 +80,24 @@ function render_header(string $title='Residentes', string $active='residentes'){
  .table-nowrap td,.table-nowrap th{white-space:nowrap}
  .actions-col{width:140px}
  body.sidebar-collapsed .sidebar{transform:translateX(-100%);}
- body.sidebar-collapsed .content{margin-left:0;}
+ body.sidebar-collapsed .topbar{transform:translateY(-100%);}
+ body.sidebar-collapsed .content{margin-left:0;padding-top:24px;}
  .due-item.due-locked{opacity:.65;}
  .due-item.due-locked .form-check-input{cursor:not-allowed;}
+ .mobile-menu-fab{
+   display:none;position:fixed;top:16px;left:16px;z-index:1100;
+   width:44px;height:44px;border-radius:50%;border:none;
+   align-items:center;justify-content:center;
+   background:var(--primary);color:#fff;box-shadow:var(--shadow-md);
+ }
  @media (max-width: 992px){
    .sidebar{transform:translateX(-100%);}
    body.sidebar-open .sidebar{transform:translateX(0);}
-   .content{margin-left:0;padding:90px 20px 40px;}
+   .content{margin-left:0;padding:24px 20px 40px;}
+   .topbar{transform:translateY(-100%);}
+   body.sidebar-open .topbar{transform:translateY(0);}
+   .mobile-menu-fab{display:flex;}
+   body.sidebar-open .mobile-menu-fab{display:none;}
  }
 </style>
 </head><body>
@@ -97,6 +109,9 @@ function render_header(string $title='Residentes', string $active='residentes'){
     COOPNAMA II
   </div>
 </header>
+<button type="button" id="mobileMenuFab" class="mobile-menu-fab" aria-label="Abrir menú">
+  <i class="bi bi-list"></i>
+</button>
 <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 
 <nav class="sidebar">
@@ -397,6 +412,7 @@ $(function(){
   (function(){
     var toggle = document.getElementById('sidebarToggle');
     if (!toggle) return;
+    var fab = document.getElementById('mobileMenuFab');
     var backdrop = document.getElementById('sidebarBackdrop');
     var mq = window.matchMedia('(max-width: 992px)');
     function isMobile(){ return mq.matches; }
@@ -447,6 +463,7 @@ $(function(){
       }
     } catch(e){}
     toggle.addEventListener('click', toggleSidebar);
+    if (fab) fab.addEventListener('click', toggleSidebar);
     if (backdrop) backdrop.addEventListener('click', closeMobile);
     window.addEventListener('resize', function(){ if (!isMobile()) closeMobile(); });
     document.querySelectorAll('.sidebar a.menu-item').forEach(function(a){
