@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__) . '/aviso_pago.php';
 /*********** Layout (header + footer) ***********/
 function header_html($title='Residentes'){
   $viewAction = $_GET['action'] ?? 'full';
@@ -154,6 +155,7 @@ function header_html($title='Residentes'){
 
 <main class="content">
   <div class="content-inner">
+    <?php coopnama_render_payment_notice(); ?>
 <?php }
 
 function footer_html(){ ?>

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/aviso_pago.php';
 session_start();
 
 /*********** 1) Conexión ***********/
@@ -87,6 +88,7 @@ function header_html($title='Mis pagos'){
 <!-- Contenedor centrado y con ancho máximo para móviles -->
 <main class="container my-4 d-flex justify-content-center">
   <div class="w-100" style="max-width: 900px;">
+    <?php coopnama_render_payment_notice(); ?>
 <?php
 }
 function footer_html(){ ?>

@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__) . '/aviso_pago.php';
 // index/layout.php – header/footer comunes con menú fijo unificado
 
 function render_header(string $title='Residentes', string $active='residentes'){
@@ -143,6 +144,7 @@ function render_header(string $title='Residentes', string $active='residentes'){
 
 <main class="content">
   <div class="content-inner">
+    <?php coopnama_render_payment_notice(); ?>
 <?php }
 
 function render_footer(){ ?>
