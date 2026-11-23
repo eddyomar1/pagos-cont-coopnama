@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../mantenimiento.php';
+require_once __DIR__ . '/../mantenimiento.php';
 // index/pagos.php – listado de pagos
 
 require __DIR__ . '/init.php';

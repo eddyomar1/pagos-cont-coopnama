@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../mantenimiento.php';
+require_once __DIR__ . '/../mantenimiento.php';
 // index/config.php – configuración de app y DB
 
 // Credenciales DB

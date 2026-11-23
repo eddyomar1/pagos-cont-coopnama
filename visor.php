@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../mantenimiento.php';
+require_once __DIR__ . '/mantenimiento.php';
 // Archivo principal del visor de residentes
 
 require __DIR__ . '/visor/config.php';

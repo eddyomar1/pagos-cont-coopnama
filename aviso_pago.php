@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../mantenimiento.php';
+require_once __DIR__ . '/mantenimiento.php';
 // Aviso general del sistema. Fechas comunes para todos los usuarios y pantallas.
 function coopnama_render_payment_notice(): void
 {

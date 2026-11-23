@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../mantenimiento.php';
+require_once __DIR__ . '/mantenimiento.php';
 // index.php – router principal -
 
 require __DIR__ . '/index/init.php';

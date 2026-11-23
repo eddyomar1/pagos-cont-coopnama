@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../mantenimiento.php';
+require_once __DIR__ . '/../mantenimiento.php';
 // index/exonerados.php – listado de residentes exonerados
 
 require __DIR__ . '/init.php';

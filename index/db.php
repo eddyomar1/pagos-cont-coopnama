@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../mantenimiento.php';
+require_once __DIR__ . '/../mantenimiento.php';
 // index/db.php – conexión PDO en $pdo
 
 if (!isset($pdo)) {
@@ -12,8 +12,5 @@ if (!isset($pdo)) {
 
   try {
     $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
-  } catch (Throwable $e) {
-    http_response_code(500);
-    exit("DB error: " . htmlspecialchars($e->getMessage()));
-  }
+  } catch(Throwable $e){ mantenimiento_mostrar_error_db(); }
 }

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../mantenimiento.php';
+require_once __DIR__ . '/mantenimiento.php';
 require_once __DIR__ . '/aviso_pago.php';
 session_start();
 
@@ -16,10 +16,7 @@ $options = [
 ];
 try {
   $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
-} catch (Throwable $e) {
-  http_response_code(500);
-  exit("DB error: ".htmlspecialchars($e->getMessage()));
-}
+} catch(Throwable $e){ mantenimiento_mostrar_error_db(); }
 
 /*********** 2) Helpers ***********/
 function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }

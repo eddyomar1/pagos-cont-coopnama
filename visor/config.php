@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../mantenimiento.php';
+require_once __DIR__ . '/../mantenimiento.php';
 /*************************************************
  * Config + conexión + helpers (Residentes)
  *************************************************/
@@ -17,7 +17,7 @@ $options = [
   PDO::ATTR_EMULATE_PREPARES   => false,
 ];
 try { $pdo = new PDO($dsn, $dbUser, $dbPass, $options); }
-catch(Throwable $e){ http_response_code(500); exit("DB error: ".htmlspecialchars($e->getMessage())); }
+catch(Throwable $e){ mantenimiento_mostrar_error_db(); }
 
 /*********** 2) Helpers ***********/
 const DEV_ACCESS_KEY = 'coopnama-dev';

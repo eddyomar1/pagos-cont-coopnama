@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../mantenimiento.php';
+require_once __DIR__ . '/../mantenimiento.php';
 /*********** Vista: formulario (nuevo/editar) ***********/
 $editing = ($action === 'edit');
 

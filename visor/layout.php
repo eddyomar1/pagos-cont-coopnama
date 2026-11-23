@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../mantenimiento.php';
+require_once __DIR__ . '/../mantenimiento.php';
 require_once dirname(__DIR__) . '/aviso_pago.php';
 /*********** Layout (header + footer) ***********/
 function header_html($title='Residentes'){
