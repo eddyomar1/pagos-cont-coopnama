@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../mantenimiento.php';
 // index/init.php – punto único de arranque común
 
 if (defined('APP_INIT')) {

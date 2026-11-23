@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../mantenimiento.php';
 // index/residentes.php – listado + pagar / crear recibo
 
 require __DIR__ . '/init.php';

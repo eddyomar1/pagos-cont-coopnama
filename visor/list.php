@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../mantenimiento.php';
 /*********** Vista: listado completo ***********/
 header_html('Residentes (vista completa)');
 

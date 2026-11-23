@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../mantenimiento.php';
 require_once __DIR__ . '/aviso_pago.php';
 session_start();
 

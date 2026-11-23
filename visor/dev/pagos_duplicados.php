@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../mantenimiento.php';
 // Dev: listado de pagos con misma fecha/hora/minuto para depurar duplicados
 $_GET['action'] = 'dev';
 

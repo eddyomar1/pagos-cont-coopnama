@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../mantenimiento.php';
 // index/db.php – conexión PDO en $pdo
 
 if (!isset($pdo)) {
